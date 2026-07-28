@@ -1,4 +1,4 @@
-# Job-Skill Gap Intelligence — "Gap Telemetry" (FYP)
+# Job-Skill Gap Intelligence — "Gap Telemetry"
 
 Scrapes real job postings → NLP-extracts & normalizes skills → parses your
 resume/GitHub → outputs a quantified, demand-weighted gap report + LLM
@@ -16,23 +16,8 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
                                                                         every saved_analyses query
 ```
 
-## Modules
-- `core/taxonomy/` — 95+ canonical skills, ~300 aliases, collision-guarded loader
-- `core/extraction/extractor.py` — spaCy PhraseMatcher engine, token-boundary safe, longest-match-wins
-- `core/extraction/demand.py` — document-frequency demand aggregation
-- `scraper/naukri_scraper.py` — Naukri JSON-API scraper (rate-limited, idempotent — run locally)
-- `scraper/synthetic_generator.py` — 500-posting probability-weighted fallback dataset
-- `core/db/store.py` — SQLite: shared market tables + user-scoped `saved_analyses`
-- `core/resume/parser.py` — pypdf extraction + scanned-PDF detection
-- `core/github_profile/fetcher.py` — GitHub REST API skill evidence
-- `core/gap/scorer.py` — demand-weighted readiness, percentile tiers, evidence levels
-- `core/roadmap/generator.py` — Groq LLaMA roadmap + deterministic template fallback
-- `core/auth/verify.py` — Supabase JWT verification (JWKS prod / HS256 dev), see below
-- `app/settings.py`, `app/deps.py`, `app/main.py` — FastAPI: auth, CORS, upload limits, rate limiting
-- `frontend/` — React dashboard with Supabase login gate
-- `tests/` — 67 tests
 
-## Auth & security (Day 6)
+## Auth & security
 
 **Auth.** `/analyze`, `/roadmap`, and all `/analyses` routes require a
 Supabase-issued bearer token, verified **locally** against the project's
@@ -48,19 +33,6 @@ across users even if a check were forgotten elsewhere. Proven by
 `tests/test_api_roadmap.py::test_user_b_cannot_*` (two different users,
 one tries to read/delete the other's saved analysis, gets 404).
 
-**CORS.** Locked to `CORS_ORIGINS` (env var), not `*`.
-
-**Uploads.** Read in capped chunks (never buffer an unbounded file into
-memory), checked for the `%PDF` magic bytes before parsing — the
-`Content-Type` header is never trusted alone.
-
-**Rate limiting.** `/analyze` and `/roadmap` (the expensive routes — PDF
-parsing, an LLM call) are limited via `slowapi`; defaults in `.env.example`.
-
-**What's still open, on purpose (see conversation notes):** the Naukri
-scraper hits an undocumented internal API — resolve the data-sourcing
-question before any commercial use. Migrating off SQLite to Postgres is
-deliberately deferred until real traffic shows it's needed.
 
 ## Setting up Supabase Auth
 
@@ -100,7 +72,7 @@ cp .env.example .env   # fill in your Supabase project values
 npm run dev             # http://localhost:5173
 ```
 
-## Full demo sequence (viva)
+## Full demo sequence
 1. Seed data (Naukri scraper or synthetic generator).
 2. Start the backend, then the frontend.
 3. Sign up / sign in on the login screen.
@@ -108,7 +80,7 @@ npm run dev             # http://localhost:5173
 5. Save the analysis (proves per-user persistence), generate a roadmap.
 6. Open a second browser (or incognito), sign in as a different user, confirm you don't see the first user's saved analysis — the isolation guarantee, live.
 
-## Key design decisions (interview prep)
+## Key design decisions
 1. **spacy.blank("en"), not en_core_web_sm** for extraction — dictionary-driven task, tokenizer + PhraseMatcher is 10x faster with no accuracy cost for known skills.
 2. **PhraseMatcher over regex** — token-boundary matching ("Go" won't match inside "going").
 3. **Canonical normalization** — "ReactJS/React.js/react js" → "React", or demand counts fragment.
