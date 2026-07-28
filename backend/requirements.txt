@@ -1,0 +1,14 @@
+spacy>=3.8
+pytest>=8.0
+requests
+pypdf
+fpdf2
+fastapi
+uvicorn
+python-multipart
+httpx
+pydantic-settings
+python-dotenv
+pyjwt[crypto]
+slowapi
+supabase

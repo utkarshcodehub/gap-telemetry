@@ -1,0 +1,27 @@
+# --- Secrets ---
+.env
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+backend/venv/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+frontend/dist/
+
+# --- Local data (regenerated via synthetic_generator.py or Supabase) ---
+backend/data/
+
+# --- Claude Code local tool state ---
+.claude/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
