@@ -1,4 +1,4 @@
-# Job-Skill Gap Intelligence — "Gap Telemetry" (FYP)
+# Job-Skill Gap Intelligence — "Gap Telemetry"
 
 Scrapes real job postings → NLP-extracts & normalizes skills → parses your
 resume/GitHub → outputs a quantified, demand-weighted gap report + LLM
@@ -34,7 +34,7 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
   in `backend/.env` (a configured project incl. service-role key is
   required to run them — see below)
 
-## Auth & security (Day 6)
+## Auth & security
 
 **Auth.** `/analyze`, `/roadmap`, and all `/analyses` routes require a
 Supabase-issued bearer token, verified **locally** against the project's
@@ -106,7 +106,7 @@ cp .env.example .env   # fill in your Supabase project values
 npm run dev             # http://localhost:5173
 ```
 
-## Full demo sequence (viva)
+## Full demo sequence
 1. Seed data (Naukri scraper or synthetic generator).
 2. Start the backend, then the frontend.
 3. Sign up / sign in on the login screen.
@@ -114,7 +114,7 @@ npm run dev             # http://localhost:5173
 5. Save the analysis (proves per-user persistence), generate a roadmap.
 6. Open a second browser (or incognito), sign in as a different user, confirm you don't see the first user's saved analysis — the isolation guarantee, live.
 
-## Key design decisions (interview prep)
+## Key design decisions
 1. **spacy.blank("en"), not en_core_web_sm** for extraction — dictionary-driven task, tokenizer + PhraseMatcher is 10x faster with no accuracy cost for known skills.
 2. **PhraseMatcher over regex** — token-boundary matching ("Go" won't match inside "going").
 3. **Canonical normalization** — "ReactJS/React.js/react js" → "React", or demand counts fragment.
