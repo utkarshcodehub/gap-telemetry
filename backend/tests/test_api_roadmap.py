@@ -13,27 +13,36 @@ import pytest
 from fastapi.testclient import TestClient
 
 import app.main as main
-from core.db.store import JobStore
 from core.gap.scorer import score_gap
 from core.roadmap import generator as rm
 from core.roadmap.generator import GroqRoadmapEngine, TemplateRoadmapEngine, generate_roadmap
 from ingest import ingest_postings
+from tests.conftest import _truncate_market_data
 from tests.test_db_ingest import make_record
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch):
-    db_path = tmp_path / "api.db"
-    store = JobStore(db_path)
+def client():
+    """Ingests straight into main.STORE — the same JobStore singleton the
+    app itself reads from (a real Supabase project, per .env) — so
+    /health, /roles, /market see exactly these 4 postings. No monkeypatch
+    needed: main.py has no get_store() to patch, it's a module-level
+    singleton already pointed at real settings.
+
+    Note: bare TestClient(main.app) (no `with` block) never triggers the
+    @app.on_event("startup") auto-seed handler — Starlette's TestClient
+    only runs lifespan/startup when used as a context manager — so there's
+    no risk of the 500-posting auto-seed colliding with this fixture's 4
+    known postings.
+    """
+    _truncate_market_data()
     ingest_postings(
         [make_record("1", "Python, Machine Learning, Pandas", role="ml"),
          make_record("2", "Python, Deep Learning, PyTorch", role="ml"),
          make_record("3", "Python, SQL, Docker", role="ml"),
          make_record("4", "Java, Spring Boot", role="backend")],
-        store,
+        main.STORE, main.EXTRACTOR,
     )
-    store.close()
-    monkeypatch.setattr(main, "get_store", lambda: JobStore(db_path))
     return TestClient(main.app)
 
 
@@ -145,57 +154,61 @@ def test_roadmap_endpoint_template_fallback(client, auth_headers, monkeypatch):
 
 
 # ---------------- saved analyses: the actual isolation proof ----------------
+#
+# These go through AnalysesStore, which forwards the bearer token straight
+# to the real Supabase project's PostgREST — so they need real, signed-in
+# Supabase users (real_user_a/real_user_b), not the dev-minted HS256
+# tokens used elsewhere in this file. See tests/conftest.py's module
+# docstring for why. clean_saved_analyses wipes each user's rows before
+# and after so runs don't leak into each other.
 
-def test_save_and_list_own_analysis(client, auth_headers):
+def test_save_and_list_own_analysis(client, real_user_a_headers, clean_saved_analyses):
     analyze_resp = client.post("/analyze", data={
         "role": "ml", "resume_text": "Python and SQL",
-    }, headers=auth_headers).json()
+    }, headers=real_user_a_headers).json()
 
     save_resp = client.post("/analyses", json={
         "role": "ml", "report": analyze_resp["report"],
-    }, headers=auth_headers)
+    }, headers=real_user_a_headers)
     assert save_resp.status_code == 200
 
-    listed = client.get("/analyses", headers=auth_headers).json()
+    listed = client.get("/analyses", headers=real_user_a_headers).json()
     assert len(listed) == 1
     assert listed[0]["role"] == "ml"
 
 
-def test_user_b_cannot_see_user_a_saved_analyses(client, auth_headers, user_b_token):
+def test_user_b_cannot_see_user_a_saved_analyses(client, real_user_a_headers, real_user_b_headers, clean_saved_analyses):
     analyze_resp = client.post("/analyze", data={
         "role": "ml", "resume_text": "Python and SQL",
-    }, headers=auth_headers).json()
-    client.post("/analyses", json={"role": "ml", "report": analyze_resp["report"]}, headers=auth_headers)
+    }, headers=real_user_a_headers).json()
+    client.post("/analyses", json={"role": "ml", "report": analyze_resp["report"]}, headers=real_user_a_headers)
 
-    user_b_headers = {"Authorization": f"Bearer {user_b_token}"}
-    listed_as_b = client.get("/analyses", headers=user_b_headers).json()
+    listed_as_b = client.get("/analyses", headers=real_user_b_headers).json()
     assert listed_as_b == []  # user A's saved analysis is invisible to user B
 
 
-def test_user_b_cannot_fetch_user_a_analysis_by_id(client, auth_headers, user_b_token):
+def test_user_b_cannot_fetch_user_a_analysis_by_id(client, real_user_a_headers, real_user_b_headers, clean_saved_analyses):
     analyze_resp = client.post("/analyze", data={
         "role": "ml", "resume_text": "Python and SQL",
-    }, headers=auth_headers).json()
+    }, headers=real_user_a_headers).json()
     saved = client.post("/analyses", json={"role": "ml", "report": analyze_resp["report"]},
-                        headers=auth_headers).json()
+                        headers=real_user_a_headers).json()
 
-    user_b_headers = {"Authorization": f"Bearer {user_b_token}"}
-    r = client.get(f"/analyses/{saved['id']}", headers=user_b_headers)
+    r = client.get(f"/analyses/{saved['id']}", headers=real_user_b_headers)
     assert r.status_code == 404  # not 403 — doesn't confirm the row exists
 
 
-def test_user_b_cannot_delete_user_a_analysis(client, auth_headers, user_b_token):
+def test_user_b_cannot_delete_user_a_analysis(client, real_user_a_headers, real_user_b_headers, clean_saved_analyses):
     analyze_resp = client.post("/analyze", data={
         "role": "ml", "resume_text": "Python and SQL",
-    }, headers=auth_headers).json()
+    }, headers=real_user_a_headers).json()
     saved = client.post("/analyses", json={"role": "ml", "report": analyze_resp["report"]},
-                        headers=auth_headers).json()
+                        headers=real_user_a_headers).json()
 
-    user_b_headers = {"Authorization": f"Bearer {user_b_token}"}
-    r = client.delete(f"/analyses/{saved['id']}", headers=user_b_headers)
+    r = client.delete(f"/analyses/{saved['id']}", headers=real_user_b_headers)
     assert r.status_code == 404
     # and it's still there for its actual owner
-    assert client.get(f"/analyses/{saved['id']}", headers=auth_headers).status_code == 200
+    assert client.get(f"/analyses/{saved['id']}", headers=real_user_a_headers).status_code == 200
 
 
 # ---------------- rate limiting ----------------

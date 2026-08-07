@@ -111,3 +111,84 @@ button.link { font-family: var(--mono); font-size: 12px; color: var(--cyan); bac
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════
+   TPO PORTAL THEME — Role Fit feature
+   Matches the dark card-based layout of the real
+   JSS Placement Portal from the screenshots.
+   ═══════════════════════════════════════════════════ */
+
+/* ── page-level nav tabs ── */
+.nav-tabs { display: flex; gap: 0; margin-top: 18px; border-bottom: 1px solid var(--line); }
+.nav-tab { font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; background: none; border: none; color: var(--muted); padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+.nav-tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+.tpo-page-title { font-family: var(--display); font-size: 18px; font-weight: 600; color: var(--text); margin: 20px 0 14px; }
+
+/* ── listing grid ── */
+.tpo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.tpo-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; cursor: pointer; display: flex; gap: 14px; transition: border-color 0.15s; }
+.tpo-card:hover, .tpo-card:focus-visible { border-color: var(--cyan); outline: none; }
+.tpo-card-logo { width: 48px; height: 48px; border-radius: 8px; background: var(--panel-2); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 13px; color: var(--muted); flex-shrink: 0; }
+.tpo-card-body { min-width: 0; }
+.tpo-card-meta { font-size: 12px; color: var(--muted); }
+.tpo-company { font-weight: 500; }
+.tpo-card-title { font-family: var(--display); font-size: 16px; font-weight: 600; margin: 4px 0 8px; }
+.tpo-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tpo-tag { font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.tpo-stipend { font-family: var(--mono); font-size: 13px; color: var(--green); margin-top: 10px; }
+
+/* ── listing detail ── */
+.tpo-back { font-family: var(--mono); font-size: 12px; color: var(--cyan); background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 14px; }
+.tpo-detail-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; }
+.tpo-detail-header { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+.tpo-detail-logo { width: 56px; height: 56px; border-radius: 10px; background: var(--panel-2); display: flex; align-items: center; justify-content: center; font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); flex-shrink: 0; }
+.tpo-detail-title { font-family: var(--display); font-size: 22px; font-weight: 700; margin: 0; }
+.tpo-detail-company { font-size: 14px; color: var(--cyan); margin-top: 2px; }
+.tpo-detail-section { margin-top: 18px; }
+.tpo-detail-section h3 { font-family: var(--display); font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 10px; }
+.tpo-skill-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.tpo-skill-tag { font-family: var(--mono); font-size: 12px; color: var(--cyan); border: 1px solid rgba(77, 201, 255, 0.3); background: rgba(77, 201, 255, 0.06); border-radius: 4px; padding: 4px 10px; }
+
+/* ── role fit panel ── */
+.tpo-fit-panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin-top: 16px; }
+.tpo-fit-heading { font-family: var(--display); font-size: 16px; font-weight: 600; margin: 0; }
+.tpo-fit-sub { font-size: 13px; color: var(--muted); margin: 4px 0 16px; }
+.tpo-fit-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.tpo-fit-full { grid-column: 1 / -1; }
+.tpo-filedrop { border: 1px dashed var(--line); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 12px; color: var(--muted); cursor: pointer; background: var(--bg); text-align: center; }
+.tpo-filedrop.has { color: var(--green); border-color: var(--green); }
+.tpo-fit-btn { font-family: var(--display); font-weight: 600; font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--cyan); color: #05261b; border: none; border-radius: 6px; padding: 12px; width: 100%; cursor: pointer; }
+.tpo-fit-btn:disabled { background: var(--line); color: var(--muted); cursor: wait; }
+.tpo-error { font-family: var(--mono); font-size: 13px; color: var(--soft); border-left: 3px solid var(--soft); padding-left: 10px; margin-top: 12px; }
+
+/* ── match result card ── */
+.fit-result { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 22px; margin-top: 16px; }
+.fit-header { display: flex; gap: 20px; align-items: center; margin-bottom: 16px; }
+.fit-gauge { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+.fit-gauge-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.fit-pct { font-family: var(--display); font-weight: 700; font-size: 28px; }
+.fit-verdict-block { min-width: 0; }
+.fit-verdict { font-family: var(--display); font-weight: 700; font-size: 22px; }
+.fit-subtitle { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 4px; }
+.fit-explanation { font-size: 14px; line-height: 1.6; color: var(--text); margin-bottom: 18px; }
+
+.fit-details { display: grid; gap: 14px; }
+.fit-section-title { font-family: var(--display); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.fit-match { color: var(--green); }
+.fit-miss { color: var(--soft); }
+.fit-unclear { color: var(--muted); }
+.fit-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fit-chip { font-family: var(--mono); font-size: 12px; border-radius: 4px; padding: 3px 10px; }
+.fit-chip-match { color: var(--green); border: 1px solid var(--green); background: rgba(46, 230, 166, 0.06); }
+.fit-chip-miss { color: var(--soft); border: 1px solid var(--soft); background: rgba(255, 77, 94, 0.06); }
+.fit-chip-unclear { color: var(--muted); border: 1px solid var(--line); background: var(--panel-2); }
+.fit-note { font-size: 12px; color: var(--muted); margin-top: 6px; font-style: italic; }
+.fit-academic { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+
+@media (max-width: 720px) {
+  .tpo-grid { grid-template-columns: 1fr; }
+  .tpo-fit-form { grid-template-columns: 1fr; }
+  .fit-header { flex-direction: column; align-items: flex-start; }
+}

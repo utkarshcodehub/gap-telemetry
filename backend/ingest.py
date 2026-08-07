@@ -1,4 +1,4 @@
-"""Ingestion pipeline: PostingRecord list -> extract skills -> SQLite."""
+"""Ingestion pipeline: PostingRecord list -> extract skills -> Supabase (Postgres)."""
 
 from __future__ import annotations
 

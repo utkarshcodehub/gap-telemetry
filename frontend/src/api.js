@@ -53,3 +53,22 @@ export async function saveAnalysis({ role, report, accessToken }) {
 export async function listSavedAnalyses({ accessToken }) {
   return jsonOrThrow(await fetch('/api/analyses', { headers: authHeader(accessToken) }));
 }
+
+export async function fetchListings() {
+  return jsonOrThrow(await fetch('/api/listings'));
+}
+
+export async function fetchListing(listingId) {
+  return jsonOrThrow(await fetch(`/api/listings/${listingId}`));
+}
+
+export async function checkRoleFit({ listingId, resumeText, resumeFile, academicMarks, accessToken }) {
+  const form = new FormData();
+  form.append('listing_id', listingId);
+  if (resumeFile) form.append('resume_file', resumeFile);
+  if (resumeText) form.append('resume_text', resumeText);
+  if (academicMarks) form.append('academic_marks', academicMarks);
+  return jsonOrThrow(await fetch('/api/role-fit', {
+    method: 'POST', body: form, headers: authHeader(accessToken),
+  }));
+}

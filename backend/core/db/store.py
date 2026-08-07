@@ -30,10 +30,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from supabase import Client, create_client
+from supabase import create_client
 
 from app.settings import get_settings
+
+if TYPE_CHECKING:
+    from supabase import Client
 
 
 @dataclass(frozen=True)
@@ -64,7 +68,7 @@ class JobStore:
                 # the app (health/roles/market/analyze/roadmap) only reads.
                 service_role_key = settings.supabase_anon_key
                 can_write = False
-        self.client: Client = create_client(url, service_role_key)
+        self.client: Any = create_client(url, service_role_key)
         self._can_write = can_write
 
     # ---------- market data writes ----------
@@ -162,7 +166,7 @@ class AnalysesStore:
             settings.validate_db_configured()
             url = url or settings.supabase_url
             anon_key = anon_key or settings.supabase_anon_key
-        self.client: Client = create_client(url, anon_key)
+        self.client: Any = create_client(url, anon_key)
         self.client.postgrest.auth(user_token)
 
     def save_analysis(

@@ -1,0 +1,101 @@
+{
+  "description": "Mock TPO portal listings, built to match the exact shape of the real JSS Placement Portal. Each listing's skill tags replicate the portal's free-text entry style — squished camelCase, slash-joined, soft-skill mush — so the parser and scorer are tested against realistic messiness, not clean ideal input.",
+  "listings": [
+    {
+      "id": "eve-sde-01",
+      "title": "SDE",
+      "company": "EVE Healthcare",
+      "location": "Gurgaon",
+      "category": "Service Based",
+      "job_type": "Internship + PPO",
+      "experience_level": "Entry Level",
+      "stipend": "₹10,000/month",
+      "eligible_branches": ["CSE", "IT", "CS (AI&ML)", "CS (DS)"],
+      "required_skills": ["problemsolving", "logicalthinking", "Clean&maintainablecoding", "Python/Django", "ReactNative", "MERNStack"]
+    },
+    {
+      "id": "hcl-get-01",
+      "title": "Graduate Engineer Trainee",
+      "company": "HCL Tech",
+      "location": "Delhi NCR",
+      "category": "Product Based",
+      "job_type": "Full Time",
+      "experience_level": "Entry Level",
+      "stipend": "₹4.5 LPA",
+      "eligible_branches": ["CSE", "IT", "ECE", "EEE"],
+      "required_skills": ["Java", "SQL", "DataStructures", "OOPs", "ProblemSolving"]
+    },
+    {
+      "id": "ogrelogic-intern-01",
+      "title": "Associate Software Developer",
+      "company": "Ogrelogic Solution Pvt. Ltd.",
+      "location": "Noida",
+      "category": "Service Based",
+      "job_type": "Internship + PPO",
+      "experience_level": "Entry Level",
+      "stipend": "₹3.6 LPA",
+      "eligible_branches": ["CSE", "IT"],
+      "required_skills": ["JavaScript", "React.js", "Node.js", "MongoDB", "HTML/CSS", "Git"]
+    },
+    {
+      "id": "infosys-se-01",
+      "title": "Systems Engineer",
+      "company": "Infosys",
+      "location": "Bangalore/Hyderabad/Pune",
+      "category": "Service Based",
+      "job_type": "Full Time",
+      "experience_level": "Entry Level",
+      "stipend": "₹3.6 LPA",
+      "eligible_branches": ["CSE", "IT", "ECE", "CS (AI&ML)", "CS (DS)"],
+      "required_skills": ["Python", "Java", "SQL", "DSA", "Linux", "Agile"]
+    },
+    {
+      "id": "quantiphi-ml-01",
+      "title": "ML Engineer Intern",
+      "company": "Quantiphi Analytics",
+      "location": "Mumbai/Bangalore",
+      "category": "Product Based",
+      "job_type": "Internship + PPO",
+      "experience_level": "Entry Level",
+      "stipend": "₹25,000/month",
+      "eligible_branches": ["CSE", "CS (AI&ML)", "CS (DS)"],
+      "required_skills": ["Python", "MachineLearning", "TensorFlow/PyTorch", "SQL", "NLP", "Docker", "Git/GitHub"]
+    },
+    {
+      "id": "wipro-fsd-01",
+      "title": "Full Stack Developer",
+      "company": "Wipro",
+      "location": "Hyderabad",
+      "category": "Service Based",
+      "job_type": "Full Time",
+      "experience_level": "Entry Level",
+      "stipend": "₹4.0 LPA",
+      "eligible_branches": ["CSE", "IT"],
+      "required_skills": ["React", "Node.js", "Express", "MongoDB", "TypeScript", "REST", "Git"]
+    },
+    {
+      "id": "startupx-ai-01",
+      "title": "AI/ML Engineer",
+      "company": "StartupX AI",
+      "location": "Remote",
+      "category": "Startup",
+      "job_type": "Internship + PPO",
+      "experience_level": "Entry Level",
+      "stipend": "₹20,000/month",
+      "eligible_branches": ["CSE", "CS (AI&ML)", "CS (DS)"],
+      "required_skills": ["Python", "LLMs", "LangChain", "FastAPI", "RAG", "VectorDatabases", "PromptEngineering", "Docker"]
+    },
+    {
+      "id": "tcs-da-01",
+      "title": "Data Analyst",
+      "company": "TCS",
+      "location": "Pan India",
+      "category": "Service Based",
+      "job_type": "Full Time",
+      "experience_level": "Entry Level",
+      "stipend": "₹3.5 LPA",
+      "eligible_branches": ["CSE", "IT", "CS (DS)"],
+      "required_skills": ["SQL", "Excel", "PowerBI", "Python", "Statistics", "CommunicationSkills"]
+    }
+  ]
+}

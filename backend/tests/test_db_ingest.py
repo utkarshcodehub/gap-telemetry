@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scraper"))
 from core.db.store import JobStore, PostingRecord
 from ingest import ingest_postings
 from synthetic_generator import generate  # noqa: E402
+from tests.conftest import _truncate_market_data
 
 
 def make_record(ext_id: str, desc: str, role: str = "test role") -> PostingRecord:
@@ -17,8 +18,13 @@ def make_record(ext_id: str, desc: str, role: str = "test role") -> PostingRecor
 
 
 @pytest.fixture
-def store(tmp_path):
-    s = JobStore(tmp_path / "test.db")
+def store():
+    """Real JobStore against the Supabase project configured in .env,
+    truncated first so each test starts from a known-empty market-data
+    table set. saved_analyses is a separate concern (AnalysesStore, see
+    test_api_roadmap.py's isolation section) — not touched here."""
+    _truncate_market_data()
+    s = JobStore()
     yield s
     s.close()
 
@@ -60,38 +66,16 @@ def test_synthetic_generator_deterministic():
 
 
 def test_synthetic_demand_is_realistic(store):
-    recs = generate(count=200, seed=7, roles=["ai ml engineer"])
+    # 40, not 200: each posting is one insert_posting call plus an
+    # upsert_skill+link_skill round trip per extracted skill — 200 would
+    # mean thousands of real HTTP calls for one test.
+    recs = generate(count=40, seed=7, roles=["ai ml engineer"])
     ingest_postings(recs, store)
     demand = {d["canonical"]: d["demand_pct"] for d in store.demand()}
     assert demand["Python"] > 80
     assert demand.get("Power BI", 0) < 5
 
-
-# ---- saved_analyses table basics (full isolation tests live in test_auth.py) ----
-
-def test_save_and_list_analysis(store):
-    aid = store.save_analysis("user-1", "ai ml engineer", 42.0, '{"foo": "bar"}')
-    assert aid > 0
-    listed = store.list_analyses("user-1")
-    assert len(listed) == 1
-    assert listed[0]["readiness_score"] == 42.0
-
-
-def test_saved_analysis_isolated_between_users(store):
-    store.save_analysis("user-1", "ai ml engineer", 42.0, "{}")
-    store.save_analysis("user-2", "data analyst", 70.0, "{}")
-    assert len(store.list_analyses("user-1")) == 1
-    assert len(store.list_analyses("user-2")) == 1
-    assert store.list_analyses("user-1")[0]["role"] == "ai ml engineer"
-
-
-def test_get_analysis_wrong_user_returns_none(store):
-    aid = store.save_analysis("user-1", "ai ml engineer", 42.0, "{}")
-    assert store.get_analysis(aid, "user-1") is not None
-    assert store.get_analysis(aid, "user-2") is None
-
-
-def test_delete_analysis_wrong_user_fails(store):
-    aid = store.save_analysis("user-1", "ai ml engineer", 42.0, "{}")
-    assert store.delete_analysis(aid, "user-2") is False
-    assert store.delete_analysis(aid, "user-1") is True
+# saved_analyses (AnalysesStore, not JobStore) isolation tests live in
+# test_api_roadmap.py's "saved analyses" section — they exercise the real
+# /analyses HTTP routes end-to-end with real signed-in Supabase users,
+# which is both more realistic and the only way to actually trigger RLS.

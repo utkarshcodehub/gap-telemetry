@@ -89,8 +89,7 @@ class Settings(BaseSettings):
 
 
 def get_settings() -> Settings:
-    """Not cached on purpose: keeps this trivially monkeypatchable in tests,
-    matching how the rest of this codebase patches get_store()."""
+    """Not cached on purpose: keeps this trivially monkeypatchable in tests."""
     settings = Settings()
     settings.validate_auth_configured()
     return settings

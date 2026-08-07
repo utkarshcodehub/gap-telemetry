@@ -29,6 +29,7 @@ What changed from the pre-auth version, and why:
 """
 
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -81,50 +82,43 @@ app.add_middleware(
 )
 
 EXTRACTOR = SkillExtractor()
-STORE = JobStore()
 MAX_UPLOAD_BYTES = settings.max_upload_mb * 1024 * 1024
 
 
-@app.on_event("startup")
-def seed_market_data_if_empty() -> None:
-    """First run against a fresh Supabase project has no postings — rather
-    than requiring a manual `python synthetic_generator.py` step (easy to
-    forget, and the reason /market and /analyze silently 404'd before),
-    seed the same 500-posting synthetic dataset automatically."""
-    if STORE.posting_count() > 0:
-        return
-    if not STORE._can_write:
-        print("[startup] DB is empty and SUPABASE_SERVICE_ROLE_KEY isn't set — "
-              "skipping auto-seed. Add it to backend/.env and restart, or run "
-              "scraper/synthetic_generator.py once that key is set.")
-        return
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scraper"))
-    from ingest import ingest_postings  # noqa: E402
-    from synthetic_generator import generate  # noqa: E402
-
-    records = generate(count=500, seed=42)
-    inserted = ingest_postings(records, STORE, EXTRACTOR)
-    print(f"[startup] seeded {inserted} synthetic postings (DB was empty)")
+def get_store() -> JobStore:
+    return JobStore()
 
 
 # ---------------------------------------------------------------- public
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "postings_in_db": STORE.posting_count()}
+    store = get_store()
+    try:
+        return {"status": "ok", "postings_in_db": store.posting_count()}
+    finally:
+        store.close()
 
 
 @app.get("/roles")
 def roles():
-    return {"roles": STORE.roles()}
+    store = get_store()
+    try:
+        return {"roles": store.roles()}
+    finally:
+        store.close()
 
 
 @app.get("/market/{role}", response_model=list[MarketSkill])
 def market(role: str):
-    demand = STORE.demand(role)
-    if not demand:
-        raise HTTPException(404, f"No postings for role '{role}'. Run the scraper or generator first.")
-    return demand
+    store = get_store()
+    try:
+        demand = store.demand(role)
+        if not demand:
+            raise HTTPException(404, f"No postings for role '{role}'. Run the scraper or generator first.")
+        return demand
+    finally:
+        store.close()
 
 
 # ---------------------------------------------------------------- helpers
@@ -191,7 +185,11 @@ async def analyze(
         except GitHubFetchError as e:
             github_status = f"skipped: {e}"
 
-    demand = STORE.demand(role)
+    store = get_store()
+    try:
+        demand = store.demand(role)
+    finally:
+        store.close()
     if not demand:
         raise HTTPException(404, f"No market data for role '{role}'.")
 
@@ -210,7 +208,11 @@ async def roadmap(
     req: RoadmapRequest,
     user: AuthUser = Depends(get_current_user),
 ):
-    demand = STORE.demand(req.role)
+    store = get_store()
+    try:
+        demand = store.demand(req.role)
+    finally:
+        store.close()
     if not demand:
         raise HTTPException(404, f"No market data for role '{req.role}'.")
 
@@ -237,7 +239,7 @@ async def save_analysis(req: SaveAnalysisRequest, user: AuthUser = Depends(get_c
 @app.get("/analyses", response_model=list[SavedAnalysisMeta])
 async def list_my_analyses(user: AuthUser = Depends(get_current_user)):
     store = AnalysesStore(user.token)
-    return store.list_analyses(user.id)  # RLS-scoped to user.id — see store.py
+    return store.list_analyses(user.id)  # scoped to user.id by RLS — see store.py
 
 
 @app.get("/analyses/{analysis_id}", response_model=SavedAnalysisFull)
@@ -250,7 +252,7 @@ async def get_my_analysis(analysis_id: int, user: AuthUser = Depends(get_current
         raise HTTPException(404, "Analysis not found")
     return SavedAnalysisFull(
         id=row["id"], role=row["role"], readiness_score=row["readiness_score"],
-        created_at=row["created_at"], report=row["report_json"],
+        created_at=row["created_at"], report=json.loads(row["report_json"]),
     )
 
 
@@ -261,3 +263,107 @@ async def delete_my_analysis(analysis_id: int, user: AuthUser = Depends(get_curr
     if not deleted:
         raise HTTPException(404, "Analysis not found")
     return {"deleted": True}
+
+
+# ---------------------------------------------------------------- role fit (Phase 2)
+
+from core.match.listing_parser import parse_listing
+from core.match.fit_scorer import compute_match
+from core.match.verdict_explainer import explain_verdict
+
+MOCK_LISTINGS_PATH = Path(__file__).resolve().parents[1] / "core" / "match" / "mock_listings.json"
+
+
+def _load_mock_listings() -> list[dict]:
+    return json.loads(MOCK_LISTINGS_PATH.read_text(encoding="utf-8"))["listings"]
+
+
+@app.get("/listings")
+def list_listings():
+    """Return all available mock listings (summary only, not full details)."""
+    listings = _load_mock_listings()
+    return [
+        {
+            "id": l["id"],
+            "title": l["title"],
+            "company": l["company"],
+            "location": l["location"],
+            "job_type": l["job_type"],
+            "stipend": l["stipend"],
+            "eligible_branches": l["eligible_branches"],
+        }
+        for l in listings
+    ]
+
+
+@app.get("/listings/{listing_id}")
+def get_listing(listing_id: str):
+    """Return full detail for one listing."""
+    listings = _load_mock_listings()
+    found = next((l for l in listings if l["id"] == listing_id), None)
+    if not found:
+        raise HTTPException(404, f"Listing '{listing_id}' not found")
+    return found
+
+
+@app.post("/role-fit")
+@limiter.limit(settings.rate_limit_analyze)
+async def role_fit(
+    request: Request,
+    listing_id: str = Form(...),
+    resume_file: UploadFile | None = File(None),
+    resume_text: str | None = Form(None),
+    academic_marks: str | None = Form(None),
+    user: AuthUser = Depends(get_current_user),
+):
+    """
+    Compute the Role Fit match score for one candidate against one listing.
+
+    academic_marks: comma-separated percentages, e.g. "94.6,84.3,78.5"
+    """
+    # Find the listing
+    listings = _load_mock_listings()
+    listing_dict = next((l for l in listings if l["id"] == listing_id), None)
+    if not listing_dict:
+        raise HTTPException(404, f"Listing '{listing_id}' not found")
+
+    # Parse resume
+    text = await _resume_text_from_inputs(resume_file, resume_text)
+    try:
+        profile = parse_resume_text(text, EXTRACTOR)
+    except ResumeParseError as e:
+        raise HTTPException(422, str(e))
+
+    # Parse listing
+    listing = parse_listing(listing_dict, EXTRACTOR)
+
+    # Parse academic marks
+    marks: list[float] = []
+    if academic_marks:
+        try:
+            marks = [float(m.strip()) for m in academic_marks.split(",") if m.strip()]
+        except ValueError:
+            raise HTTPException(422, "academic_marks must be comma-separated numbers, e.g. '94.6,84.3'")
+
+    # Compute deterministic score
+    result = compute_match(listing, profile.skill_names, marks)
+
+    # Generate explanation (LLM or template fallback)
+    explanation = explain_verdict(result, api_key=settings.groq_api_key)
+
+    return {
+        "listing_id": result.listing_id,
+        "listing_title": result.listing_title,
+        "company": result.company,
+        "match_pct": result.match_pct,
+        "verdict": result.verdict,
+        "explanation": explanation,
+        "matched_skills": list(result.matched_skills),
+        "missing_skills": list(result.missing_skills),
+        "unmatched_tags": list(result.unmatched_tags),
+        "skill_match_pct": result.skill_match_pct,
+        "academic_adjustment": result.academic_adjustment,
+        "academic_marks_used": list(result.academic_marks_used),
+        "resume_skills_found": sorted(profile.skill_names),
+    }
+

@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { analyze, fetchRoles, getRoadmap, saveAnalysis } from './api';
 import { GapBoard, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
+import RoleFitPage from './RoleFitPage';
 
 export default function App({ accessToken, userEmail, onSignOut }) {
+  const [tab, setTab] = useState('telemetry'); // 'telemetry' | 'rolefit'
   const [roles, setRoles] = useState([]);
   const [role, setRole] = useState('');
   const [resumeText, setResumeText] = useState('');
@@ -83,6 +85,19 @@ export default function App({ accessToken, userEmail, onSignOut }) {
         </div>
       </header>
 
+      <div className="nav-tabs">
+        <button className={`nav-tab ${tab === 'telemetry' ? 'active' : ''}`} onClick={() => setTab('telemetry')}>
+          Gap Telemetry
+        </button>
+        <button className={`nav-tab ${tab === 'rolefit' ? 'active' : ''}`} onClick={() => setTab('rolefit')}>
+          Role Fit
+        </button>
+      </div>
+
+      {tab === 'rolefit' ? (
+        <RoleFitPage accessToken={accessToken} />
+      ) : (
+      <>
       <section className="panel">
         <h2>Session setup</h2>
         <div className="form-grid">
@@ -140,6 +155,8 @@ export default function App({ accessToken, userEmail, onSignOut }) {
           </section>
           {roadmap && <RoadmapTimeline roadmap={roadmap} />}
         </>
+      )}
+      </>
       )}
     </>
   );

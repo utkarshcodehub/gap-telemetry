@@ -62,26 +62,41 @@ class TokenVerifier:
         return self._jwks_client
 
     def verify(self, token: str) -> AuthUser:
-        try:
-            if self.jwks_url:
+        payload = None
+        if self.jwks_url:
+            try:
                 signing_key = self._get_jwks_client().get_signing_key_from_jwt(token)
                 payload = jwt.decode(
                     token, signing_key.key,
                     algorithms=["RS256", "ES256"],
                     audience=EXPECTED_AUDIENCE,
                 )
-            else:
+            except jwt.ExpiredSignatureError as e:
+                raise AuthError("Token expired") from e
+            except jwt.InvalidAudienceError as e:
+                raise AuthError("Token has wrong audience") from e
+            except jwt.PyJWTError as e:
+                # Not a JWKS-verifiable token (e.g. no/unknown `kid`, wrong
+                # alg) — fall through to the HS256 path below if one is
+                # configured, rather than treating "not a real Supabase
+                # token" as a hard rejection. Both may be configured at
+                # once (see settings.py); this is what makes that real.
+                if not self.hs256_secret:
+                    raise AuthError(f"Invalid token: {e}") from e
+
+        if payload is None:
+            try:
                 payload = jwt.decode(
                     token, self.hs256_secret,
                     algorithms=["HS256"],
                     audience=EXPECTED_AUDIENCE,
                 )
-        except jwt.ExpiredSignatureError as e:
-            raise AuthError("Token expired") from e
-        except jwt.InvalidAudienceError as e:
-            raise AuthError("Token has wrong audience") from e
-        except jwt.PyJWTError as e:
-            raise AuthError(f"Invalid token: {e}") from e
+            except jwt.ExpiredSignatureError as e:
+                raise AuthError("Token expired") from e
+            except jwt.InvalidAudienceError as e:
+                raise AuthError("Token has wrong audience") from e
+            except jwt.PyJWTError as e:
+                raise AuthError(f"Invalid token: {e}") from e
 
         sub = payload.get("sub")
         if not sub:

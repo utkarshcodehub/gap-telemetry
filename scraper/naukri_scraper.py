@@ -2,7 +2,10 @@
 Naukri scraper — RUN THIS LOCALLY (network access to naukri.com required).
 
 Usage:
+    # From the repo root:
     python3 -m scraper.naukri_scraper --role "machine learning intern" --pages 25
+    # If you are in backend/ instead:
+    python3 ../scraper/naukri_scraper.py --role "machine learning intern" --pages 25
 
 Hits Naukri's internal JSON search API (the same one their React frontend
 calls) rather than parsing HTML: structured fields for free, no brittle

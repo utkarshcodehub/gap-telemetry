@@ -5,6 +5,8 @@ Pipeline:  raw text  ->  clean  ->  tokenize (spaCy)  ->  PhraseMatcher
            ->  canonicalize  ->  deduplicate  ->  ExtractedSkill list
 """
 
+from __future__ import annotations
+
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -25,10 +27,17 @@ class ExtractedSkill:
 
 _SEPARATOR_RE = re.compile(r"[,/|•·;()\[\]{}]+")
 _MULTISPACE_RE = re.compile(r"\s+")
+# CamelCase splitter: insert a space before an uppercase letter that follows
+# a lowercase letter or digit. Handles TPO-portal-style squished tags like
+# "ReactNative" -> "React Native", "MERNStack" -> "MERN Stack".
+_CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 
 
 def preprocess(text: str) -> str:
+    """Normalize messy posting/tag text so tokenization is clean."""
     text = _SEPARATOR_RE.sub(" ", text)
+    text = _CAMEL_RE.sub(" ", text)
+    text = text.replace("&", " ")
     text = _MULTISPACE_RE.sub(" ", text)
     return text.strip()
 

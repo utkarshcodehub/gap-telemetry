@@ -2,111 +2,916 @@
   "version": "1.0",
   "description": "Canonical skill taxonomy for Indian tech job market. Each skill has one canonical name, a category, and aliases (surface forms found in job postings/resumes).",
   "skills": [
-    {"canonical": "Python", "category": "programming_language", "aliases": ["python", "python3", "python 3", "py"]},
-    {"canonical": "Java", "category": "programming_language", "aliases": ["java", "core java", "java 8", "java8", "j2ee"]},
-    {"canonical": "JavaScript", "category": "programming_language", "aliases": ["javascript", "js", "ecmascript", "es6", "vanilla js"]},
-    {"canonical": "TypeScript", "category": "programming_language", "aliases": ["typescript", "ts"]},
-    {"canonical": "C++", "category": "programming_language", "aliases": ["c++", "cpp", "c plus plus"]},
-    {"canonical": "C", "category": "programming_language", "aliases": ["c programming", "c language"]},
-    {"canonical": "Go", "category": "programming_language", "aliases": ["golang", "go lang"]},
-    {"canonical": "SQL", "category": "programming_language", "aliases": ["sql", "structured query language", "advanced sql", "sql queries"]},
-    {"canonical": "R", "category": "programming_language", "aliases": ["r programming", "r language"]},
-    {"canonical": "Rust", "category": "programming_language", "aliases": ["rust", "rustlang"]},
-
-    {"canonical": "React", "category": "frontend", "aliases": ["react", "reactjs", "react.js", "react js"]},
-    {"canonical": "Next.js", "category": "frontend", "aliases": ["next.js", "nextjs", "next js"]},
-    {"canonical": "Angular", "category": "frontend", "aliases": ["angular", "angularjs", "angular.js"]},
-    {"canonical": "Vue.js", "category": "frontend", "aliases": ["vue", "vuejs", "vue.js"]},
-    {"canonical": "HTML", "category": "frontend", "aliases": ["html", "html5"]},
-    {"canonical": "CSS", "category": "frontend", "aliases": ["css", "css3"]},
-    {"canonical": "Tailwind CSS", "category": "frontend", "aliases": ["tailwind", "tailwindcss", "tailwind css"]},
-    {"canonical": "Redux", "category": "frontend", "aliases": ["redux", "redux toolkit"]},
-    {"canonical": "React Native", "category": "mobile", "aliases": ["react native", "react-native", "rn"]},
-    {"canonical": "Flutter", "category": "mobile", "aliases": ["flutter", "dart flutter"]},
-    {"canonical": "Android Development", "category": "mobile", "aliases": ["android", "android development", "android sdk"]},
-
-    {"canonical": "Node.js", "category": "backend", "aliases": ["node", "nodejs", "node.js", "node js"]},
-    {"canonical": "Express.js", "category": "backend", "aliases": ["express", "expressjs", "express.js"]},
-    {"canonical": "FastAPI", "category": "backend", "aliases": ["fastapi", "fast api"]},
-    {"canonical": "Django", "category": "backend", "aliases": ["django", "django rest framework", "drf"]},
-    {"canonical": "Flask", "category": "backend", "aliases": ["flask"]},
-    {"canonical": "Spring Boot", "category": "backend", "aliases": ["spring", "spring boot", "springboot"]},
-    {"canonical": "REST API", "category": "backend", "aliases": ["rest", "rest api", "restful", "restful api", "restful apis", "rest apis", "api development"]},
-    {"canonical": "GraphQL", "category": "backend", "aliases": ["graphql", "graph ql"]},
-    {"canonical": "Microservices", "category": "backend", "aliases": ["microservices", "microservice architecture", "micro services"]},
-    {"canonical": "WebSockets", "category": "backend", "aliases": ["websocket", "websockets", "socket.io"]},
-
-    {"canonical": "Machine Learning", "category": "ml_ai", "aliases": ["machine learning", "ml", "ml algorithms", "machine-learning"]},
-    {"canonical": "Deep Learning", "category": "ml_ai", "aliases": ["deep learning", "dl", "neural networks", "neural network", "ann", "cnn", "rnn"]},
-    {"canonical": "Natural Language Processing", "category": "ml_ai", "aliases": ["nlp", "natural language processing", "text mining", "text analytics"]},
-    {"canonical": "Computer Vision", "category": "ml_ai", "aliases": ["computer vision", "cv", "image processing", "opencv"]},
-    {"canonical": "TensorFlow", "category": "ml_ai", "aliases": ["tensorflow", "tf", "tensorflow 2", "keras"]},
-    {"canonical": "PyTorch", "category": "ml_ai", "aliases": ["pytorch", "torch"]},
-    {"canonical": "scikit-learn", "category": "ml_ai", "aliases": ["scikit-learn", "sklearn", "scikit learn"]},
-    {"canonical": "XGBoost", "category": "ml_ai", "aliases": ["xgboost", "xg boost", "gradient boosting", "lightgbm", "catboost"]},
-    {"canonical": "Large Language Models", "category": "ml_ai", "aliases": ["llm", "llms", "large language models", "large language model", "gpt", "llama", "generative ai", "genai", "gen ai"]},
-    {"canonical": "Prompt Engineering", "category": "ml_ai", "aliases": ["prompt engineering", "prompting", "prompt design"]},
-    {"canonical": "RAG", "category": "ml_ai", "aliases": ["rag", "retrieval augmented generation", "retrieval-augmented generation", "vector search", "semantic search"]},
-    {"canonical": "LangChain", "category": "ml_ai", "aliases": ["langchain", "lang chain", "langgraph"]},
-    {"canonical": "Hugging Face", "category": "ml_ai", "aliases": ["hugging face", "huggingface", "transformers library", "hf"]},
-    {"canonical": "spaCy", "category": "ml_ai", "aliases": ["spacy", "spa cy"]},
-    {"canonical": "MLOps", "category": "ml_ai", "aliases": ["mlops", "ml ops", "model deployment", "mlflow", "model monitoring"]},
-    {"canonical": "Fine-tuning", "category": "ml_ai", "aliases": ["fine-tuning", "fine tuning", "finetuning", "lora", "peft"]},
-    {"canonical": "AI Agents", "category": "ml_ai", "aliases": ["ai agents", "agentic ai", "agents", "autonomous agents", "multi-agent"]},
-
-    {"canonical": "Pandas", "category": "data", "aliases": ["pandas"]},
-    {"canonical": "NumPy", "category": "data", "aliases": ["numpy", "np"]},
-    {"canonical": "Data Analysis", "category": "data", "aliases": ["data analysis", "data analytics", "exploratory data analysis", "eda"]},
-    {"canonical": "Data Visualization", "category": "data", "aliases": ["data visualization", "data viz", "matplotlib", "seaborn", "plotly"]},
-    {"canonical": "Power BI", "category": "data", "aliases": ["power bi", "powerbi", "power-bi"]},
-    {"canonical": "Tableau", "category": "data", "aliases": ["tableau"]},
-    {"canonical": "Excel", "category": "data", "aliases": ["excel", "ms excel", "microsoft excel", "advanced excel", "vlookup", "pivot tables"]},
-    {"canonical": "ETL", "category": "data", "aliases": ["etl", "elt", "data pipeline", "data pipelines", "data engineering"]},
-    {"canonical": "Apache Spark", "category": "data", "aliases": ["spark", "apache spark", "pyspark"]},
-    {"canonical": "Apache Kafka", "category": "data", "aliases": ["kafka", "apache kafka"]},
-    {"canonical": "Airflow", "category": "data", "aliases": ["airflow", "apache airflow"]},
-    {"canonical": "Statistics", "category": "data", "aliases": ["statistics", "statistical analysis", "hypothesis testing", "a/b testing", "ab testing"]},
-    {"canonical": "Big Data", "category": "data", "aliases": ["big data", "hadoop", "hive"]},
-
-    {"canonical": "MySQL", "category": "database", "aliases": ["mysql", "my sql"]},
-    {"canonical": "PostgreSQL", "category": "database", "aliases": ["postgresql", "postgres", "psql"]},
-    {"canonical": "MongoDB", "category": "database", "aliases": ["mongodb", "mongo", "mongo db"]},
-    {"canonical": "Redis", "category": "database", "aliases": ["redis"]},
-    {"canonical": "SQLite", "category": "database", "aliases": ["sqlite", "sqlite3"]},
-    {"canonical": "Supabase", "category": "database", "aliases": ["supabase"]},
-    {"canonical": "Firebase", "category": "database", "aliases": ["firebase", "firestore"]},
-    {"canonical": "Elasticsearch", "category": "database", "aliases": ["elasticsearch", "elastic search", "elk"]},
-    {"canonical": "Vector Databases", "category": "database", "aliases": ["vector database", "vector db", "pinecone", "chromadb", "faiss", "weaviate", "qdrant"]},
-
-    {"canonical": "AWS", "category": "cloud_devops", "aliases": ["aws", "amazon web services", "ec2", "s3", "aws lambda"]},
-    {"canonical": "Azure", "category": "cloud_devops", "aliases": ["azure", "microsoft azure"]},
-    {"canonical": "Google Cloud", "category": "cloud_devops", "aliases": ["gcp", "google cloud", "google cloud platform"]},
-    {"canonical": "Docker", "category": "cloud_devops", "aliases": ["docker", "containerization", "containers"]},
-    {"canonical": "Kubernetes", "category": "cloud_devops", "aliases": ["kubernetes", "k8s"]},
-    {"canonical": "CI/CD", "category": "cloud_devops", "aliases": ["ci/cd", "cicd", "ci cd", "continuous integration", "continuous deployment", "jenkins", "github actions"]},
-    {"canonical": "Git", "category": "cloud_devops", "aliases": ["git", "github", "gitlab", "version control", "bitbucket"]},
-    {"canonical": "Linux", "category": "cloud_devops", "aliases": ["linux", "unix", "shell scripting", "bash"]},
-    {"canonical": "Terraform", "category": "cloud_devops", "aliases": ["terraform", "infrastructure as code", "iac"]},
-    {"canonical": "Nginx", "category": "cloud_devops", "aliases": ["nginx"]},
-
-    {"canonical": "Data Structures & Algorithms", "category": "cs_fundamentals", "aliases": ["dsa", "data structures", "algorithms", "data structures and algorithms", "problem solving"]},
-    {"canonical": "Object-Oriented Programming", "category": "cs_fundamentals", "aliases": ["oop", "oops", "object oriented programming", "object-oriented"]},
-    {"canonical": "Operating Systems", "category": "cs_fundamentals", "aliases": ["operating systems", "os concepts"]},
-    {"canonical": "Computer Networks", "category": "cs_fundamentals", "aliases": ["computer networks", "networking", "tcp/ip"]},
-    {"canonical": "DBMS", "category": "cs_fundamentals", "aliases": ["dbms", "database management", "database design", "rdbms"]},
-    {"canonical": "System Design", "category": "cs_fundamentals", "aliases": ["system design", "distributed systems", "scalability", "hld", "lld"]},
-
-    {"canonical": "Communication", "category": "soft_skill", "aliases": ["communication", "communication skills", "verbal communication", "written communication"]},
-    {"canonical": "Teamwork", "category": "soft_skill", "aliases": ["teamwork", "team player", "collaboration", "cross-functional"]},
-    {"canonical": "Agile", "category": "soft_skill", "aliases": ["agile", "scrum", "agile methodology", "sprint", "jira"]},
-    {"canonical": "Leadership", "category": "soft_skill", "aliases": ["leadership", "team lead", "mentoring"]},
-
-    {"canonical": "Selenium", "category": "testing", "aliases": ["selenium", "web scraping", "beautifulsoup", "scrapy", "web automation"]},
-    {"canonical": "Unit Testing", "category": "testing", "aliases": ["unit testing", "pytest", "jest", "junit", "testing", "tdd"]},
-    {"canonical": "Postman", "category": "testing", "aliases": ["postman", "api testing"]},
-
-    {"canonical": "Blockchain", "category": "emerging", "aliases": ["blockchain", "web3", "solidity", "smart contracts", "ethereum"]},
-    {"canonical": "Cybersecurity", "category": "emerging", "aliases": ["cybersecurity", "cyber security", "information security", "infosec", "penetration testing"]},
-    {"canonical": "IoT", "category": "emerging", "aliases": ["iot", "internet of things", "embedded systems"]}
+    {
+      "canonical": "Python",
+      "category": "programming_language",
+      "aliases": [
+        "python",
+        "python3",
+        "python 3",
+        "py"
+      ]
+    },
+    {
+      "canonical": "Java",
+      "category": "programming_language",
+      "aliases": [
+        "java",
+        "core java",
+        "java 8",
+        "java8",
+        "j2ee"
+      ]
+    },
+    {
+      "canonical": "JavaScript",
+      "category": "programming_language",
+      "aliases": [
+        "javascript",
+        "js",
+        "ecmascript",
+        "es6",
+        "vanilla js"
+      ]
+    },
+    {
+      "canonical": "TypeScript",
+      "category": "programming_language",
+      "aliases": [
+        "typescript",
+        "ts"
+      ]
+    },
+    {
+      "canonical": "C++",
+      "category": "programming_language",
+      "aliases": [
+        "c++",
+        "cpp",
+        "c plus plus"
+      ]
+    },
+    {
+      "canonical": "C",
+      "category": "programming_language",
+      "aliases": [
+        "c programming",
+        "c language"
+      ]
+    },
+    {
+      "canonical": "Go",
+      "category": "programming_language",
+      "aliases": [
+        "golang",
+        "go lang"
+      ]
+    },
+    {
+      "canonical": "SQL",
+      "category": "programming_language",
+      "aliases": [
+        "sql",
+        "structured query language",
+        "advanced sql",
+        "sql queries"
+      ]
+    },
+    {
+      "canonical": "R",
+      "category": "programming_language",
+      "aliases": [
+        "r programming",
+        "r language"
+      ]
+    },
+    {
+      "canonical": "Rust",
+      "category": "programming_language",
+      "aliases": [
+        "rust",
+        "rustlang"
+      ]
+    },
+    {
+      "canonical": "React",
+      "category": "frontend",
+      "aliases": [
+        "react",
+        "reactjs",
+        "react.js",
+        "react js",
+        "mern",
+        "mern stack",
+        "mernstack"
+      ]
+    },
+    {
+      "canonical": "Next.js",
+      "category": "frontend",
+      "aliases": [
+        "next.js",
+        "nextjs",
+        "next js"
+      ]
+    },
+    {
+      "canonical": "Angular",
+      "category": "frontend",
+      "aliases": [
+        "angular",
+        "angularjs",
+        "angular.js"
+      ]
+    },
+    {
+      "canonical": "Vue.js",
+      "category": "frontend",
+      "aliases": [
+        "vue",
+        "vuejs",
+        "vue.js"
+      ]
+    },
+    {
+      "canonical": "HTML",
+      "category": "frontend",
+      "aliases": [
+        "html",
+        "html5"
+      ]
+    },
+    {
+      "canonical": "CSS",
+      "category": "frontend",
+      "aliases": [
+        "css",
+        "css3"
+      ]
+    },
+    {
+      "canonical": "Tailwind CSS",
+      "category": "frontend",
+      "aliases": [
+        "tailwind",
+        "tailwindcss",
+        "tailwind css"
+      ]
+    },
+    {
+      "canonical": "Redux",
+      "category": "frontend",
+      "aliases": [
+        "redux",
+        "redux toolkit"
+      ]
+    },
+    {
+      "canonical": "React Native",
+      "category": "mobile",
+      "aliases": [
+        "react native",
+        "react-native",
+        "rn"
+      ]
+    },
+    {
+      "canonical": "Flutter",
+      "category": "mobile",
+      "aliases": [
+        "flutter",
+        "dart flutter"
+      ]
+    },
+    {
+      "canonical": "Android Development",
+      "category": "mobile",
+      "aliases": [
+        "android",
+        "android development",
+        "android sdk"
+      ]
+    },
+    {
+      "canonical": "Node.js",
+      "category": "backend",
+      "aliases": [
+        "node",
+        "nodejs",
+        "node.js",
+        "node js"
+      ]
+    },
+    {
+      "canonical": "Express.js",
+      "category": "backend",
+      "aliases": [
+        "express",
+        "expressjs",
+        "express.js"
+      ]
+    },
+    {
+      "canonical": "FastAPI",
+      "category": "backend",
+      "aliases": [
+        "fastapi",
+        "fast api"
+      ]
+    },
+    {
+      "canonical": "Django",
+      "category": "backend",
+      "aliases": [
+        "django",
+        "django rest framework",
+        "drf"
+      ]
+    },
+    {
+      "canonical": "Flask",
+      "category": "backend",
+      "aliases": [
+        "flask"
+      ]
+    },
+    {
+      "canonical": "Spring Boot",
+      "category": "backend",
+      "aliases": [
+        "spring",
+        "spring boot",
+        "springboot"
+      ]
+    },
+    {
+      "canonical": "REST API",
+      "category": "backend",
+      "aliases": [
+        "rest",
+        "rest api",
+        "restful",
+        "restful api",
+        "restful apis",
+        "rest apis",
+        "api development"
+      ]
+    },
+    {
+      "canonical": "GraphQL",
+      "category": "backend",
+      "aliases": [
+        "graphql",
+        "graph ql"
+      ]
+    },
+    {
+      "canonical": "Microservices",
+      "category": "backend",
+      "aliases": [
+        "microservices",
+        "microservice architecture",
+        "micro services"
+      ]
+    },
+    {
+      "canonical": "WebSockets",
+      "category": "backend",
+      "aliases": [
+        "websocket",
+        "websockets",
+        "socket.io"
+      ]
+    },
+    {
+      "canonical": "Machine Learning",
+      "category": "ml_ai",
+      "aliases": [
+        "machine learning",
+        "ml",
+        "ml algorithms",
+        "machine-learning"
+      ]
+    },
+    {
+      "canonical": "Deep Learning",
+      "category": "ml_ai",
+      "aliases": [
+        "deep learning",
+        "dl",
+        "neural networks",
+        "neural network",
+        "ann",
+        "cnn",
+        "rnn"
+      ]
+    },
+    {
+      "canonical": "Natural Language Processing",
+      "category": "ml_ai",
+      "aliases": [
+        "nlp",
+        "natural language processing",
+        "text mining",
+        "text analytics"
+      ]
+    },
+    {
+      "canonical": "Computer Vision",
+      "category": "ml_ai",
+      "aliases": [
+        "computer vision",
+        "cv",
+        "image processing",
+        "opencv"
+      ]
+    },
+    {
+      "canonical": "TensorFlow",
+      "category": "ml_ai",
+      "aliases": [
+        "tensorflow",
+        "tf",
+        "tensorflow 2",
+        "keras"
+      ]
+    },
+    {
+      "canonical": "PyTorch",
+      "category": "ml_ai",
+      "aliases": [
+        "pytorch",
+        "torch"
+      ]
+    },
+    {
+      "canonical": "scikit-learn",
+      "category": "ml_ai",
+      "aliases": [
+        "scikit-learn",
+        "sklearn",
+        "scikit learn"
+      ]
+    },
+    {
+      "canonical": "XGBoost",
+      "category": "ml_ai",
+      "aliases": [
+        "xgboost",
+        "xg boost",
+        "gradient boosting",
+        "lightgbm",
+        "catboost"
+      ]
+    },
+    {
+      "canonical": "Large Language Models",
+      "category": "ml_ai",
+      "aliases": [
+        "llm",
+        "llms",
+        "large language models",
+        "large language model",
+        "gpt",
+        "llama",
+        "generative ai",
+        "genai",
+        "gen ai"
+      ]
+    },
+    {
+      "canonical": "Prompt Engineering",
+      "category": "ml_ai",
+      "aliases": [
+        "prompt engineering",
+        "prompting",
+        "prompt design"
+      ]
+    },
+    {
+      "canonical": "RAG",
+      "category": "ml_ai",
+      "aliases": [
+        "rag",
+        "retrieval augmented generation",
+        "retrieval-augmented generation",
+        "vector search",
+        "semantic search"
+      ]
+    },
+    {
+      "canonical": "LangChain",
+      "category": "ml_ai",
+      "aliases": [
+        "langchain",
+        "lang chain",
+        "langgraph"
+      ]
+    },
+    {
+      "canonical": "Hugging Face",
+      "category": "ml_ai",
+      "aliases": [
+        "hugging face",
+        "huggingface",
+        "transformers library",
+        "hf"
+      ]
+    },
+    {
+      "canonical": "spaCy",
+      "category": "ml_ai",
+      "aliases": [
+        "spacy",
+        "spa cy"
+      ]
+    },
+    {
+      "canonical": "MLOps",
+      "category": "ml_ai",
+      "aliases": [
+        "mlops",
+        "ml ops",
+        "model deployment",
+        "mlflow",
+        "model monitoring"
+      ]
+    },
+    {
+      "canonical": "Fine-tuning",
+      "category": "ml_ai",
+      "aliases": [
+        "fine-tuning",
+        "fine tuning",
+        "finetuning",
+        "lora",
+        "peft"
+      ]
+    },
+    {
+      "canonical": "AI Agents",
+      "category": "ml_ai",
+      "aliases": [
+        "ai agents",
+        "agentic ai",
+        "agents",
+        "autonomous agents",
+        "multi-agent"
+      ]
+    },
+    {
+      "canonical": "Pandas",
+      "category": "data",
+      "aliases": [
+        "pandas"
+      ]
+    },
+    {
+      "canonical": "NumPy",
+      "category": "data",
+      "aliases": [
+        "numpy",
+        "np"
+      ]
+    },
+    {
+      "canonical": "Data Analysis",
+      "category": "data",
+      "aliases": [
+        "data analysis",
+        "data analytics",
+        "exploratory data analysis",
+        "eda"
+      ]
+    },
+    {
+      "canonical": "Data Visualization",
+      "category": "data",
+      "aliases": [
+        "data visualization",
+        "data viz",
+        "matplotlib",
+        "seaborn",
+        "plotly"
+      ]
+    },
+    {
+      "canonical": "Power BI",
+      "category": "data",
+      "aliases": [
+        "power bi",
+        "powerbi",
+        "power-bi"
+      ]
+    },
+    {
+      "canonical": "Tableau",
+      "category": "data",
+      "aliases": [
+        "tableau"
+      ]
+    },
+    {
+      "canonical": "Excel",
+      "category": "data",
+      "aliases": [
+        "excel",
+        "ms excel",
+        "microsoft excel",
+        "advanced excel",
+        "vlookup",
+        "pivot tables"
+      ]
+    },
+    {
+      "canonical": "ETL",
+      "category": "data",
+      "aliases": [
+        "etl",
+        "elt",
+        "data pipeline",
+        "data pipelines",
+        "data engineering"
+      ]
+    },
+    {
+      "canonical": "Apache Spark",
+      "category": "data",
+      "aliases": [
+        "spark",
+        "apache spark",
+        "pyspark"
+      ]
+    },
+    {
+      "canonical": "Apache Kafka",
+      "category": "data",
+      "aliases": [
+        "kafka",
+        "apache kafka"
+      ]
+    },
+    {
+      "canonical": "Airflow",
+      "category": "data",
+      "aliases": [
+        "airflow",
+        "apache airflow"
+      ]
+    },
+    {
+      "canonical": "Statistics",
+      "category": "data",
+      "aliases": [
+        "statistics",
+        "statistical analysis",
+        "hypothesis testing",
+        "a/b testing",
+        "ab testing"
+      ]
+    },
+    {
+      "canonical": "Big Data",
+      "category": "data",
+      "aliases": [
+        "big data",
+        "hadoop",
+        "hive"
+      ]
+    },
+    {
+      "canonical": "MySQL",
+      "category": "database",
+      "aliases": [
+        "mysql",
+        "my sql"
+      ]
+    },
+    {
+      "canonical": "PostgreSQL",
+      "category": "database",
+      "aliases": [
+        "postgresql",
+        "postgres",
+        "psql"
+      ]
+    },
+    {
+      "canonical": "MongoDB",
+      "category": "database",
+      "aliases": [
+        "mongodb",
+        "mongo",
+        "mongo db"
+      ]
+    },
+    {
+      "canonical": "Redis",
+      "category": "database",
+      "aliases": [
+        "redis"
+      ]
+    },
+    {
+      "canonical": "SQLite",
+      "category": "database",
+      "aliases": [
+        "sqlite",
+        "sqlite3"
+      ]
+    },
+    {
+      "canonical": "Supabase",
+      "category": "database",
+      "aliases": [
+        "supabase"
+      ]
+    },
+    {
+      "canonical": "Firebase",
+      "category": "database",
+      "aliases": [
+        "firebase",
+        "firestore"
+      ]
+    },
+    {
+      "canonical": "Elasticsearch",
+      "category": "database",
+      "aliases": [
+        "elasticsearch",
+        "elastic search",
+        "elk"
+      ]
+    },
+    {
+      "canonical": "Vector Databases",
+      "category": "database",
+      "aliases": [
+        "vector database",
+        "vector db",
+        "pinecone",
+        "chromadb",
+        "faiss",
+        "weaviate",
+        "qdrant"
+      ]
+    },
+    {
+      "canonical": "AWS",
+      "category": "cloud_devops",
+      "aliases": [
+        "aws",
+        "amazon web services",
+        "ec2",
+        "s3",
+        "aws lambda"
+      ]
+    },
+    {
+      "canonical": "Azure",
+      "category": "cloud_devops",
+      "aliases": [
+        "azure",
+        "microsoft azure"
+      ]
+    },
+    {
+      "canonical": "Google Cloud",
+      "category": "cloud_devops",
+      "aliases": [
+        "gcp",
+        "google cloud",
+        "google cloud platform"
+      ]
+    },
+    {
+      "canonical": "Docker",
+      "category": "cloud_devops",
+      "aliases": [
+        "docker",
+        "containerization",
+        "containers"
+      ]
+    },
+    {
+      "canonical": "Kubernetes",
+      "category": "cloud_devops",
+      "aliases": [
+        "kubernetes",
+        "k8s"
+      ]
+    },
+    {
+      "canonical": "CI/CD",
+      "category": "cloud_devops",
+      "aliases": [
+        "ci/cd",
+        "cicd",
+        "ci cd",
+        "continuous integration",
+        "continuous deployment",
+        "jenkins",
+        "github actions"
+      ]
+    },
+    {
+      "canonical": "Git",
+      "category": "cloud_devops",
+      "aliases": [
+        "git",
+        "github",
+        "gitlab",
+        "version control",
+        "bitbucket"
+      ]
+    },
+    {
+      "canonical": "Linux",
+      "category": "cloud_devops",
+      "aliases": [
+        "linux",
+        "unix",
+        "shell scripting",
+        "bash"
+      ]
+    },
+    {
+      "canonical": "Terraform",
+      "category": "cloud_devops",
+      "aliases": [
+        "terraform",
+        "infrastructure as code",
+        "iac"
+      ]
+    },
+    {
+      "canonical": "Nginx",
+      "category": "cloud_devops",
+      "aliases": [
+        "nginx"
+      ]
+    },
+    {
+      "canonical": "Data Structures & Algorithms",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "dsa",
+        "data structures",
+        "algorithms",
+        "data structures and algorithms",
+        "problem solving"
+      ]
+    },
+    {
+      "canonical": "Object-Oriented Programming",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "oop",
+        "oops",
+        "object oriented programming",
+        "object-oriented"
+      ]
+    },
+    {
+      "canonical": "Operating Systems",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "operating systems",
+        "os concepts"
+      ]
+    },
+    {
+      "canonical": "Computer Networks",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "computer networks",
+        "networking",
+        "tcp/ip"
+      ]
+    },
+    {
+      "canonical": "DBMS",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "dbms",
+        "database management",
+        "database design",
+        "rdbms"
+      ]
+    },
+    {
+      "canonical": "System Design",
+      "category": "cs_fundamentals",
+      "aliases": [
+        "system design",
+        "distributed systems",
+        "scalability",
+        "hld",
+        "lld"
+      ]
+    },
+    {
+      "canonical": "Communication",
+      "category": "soft_skill",
+      "aliases": [
+        "communication",
+        "communication skills",
+        "verbal communication",
+        "written communication"
+      ]
+    },
+    {
+      "canonical": "Teamwork",
+      "category": "soft_skill",
+      "aliases": [
+        "teamwork",
+        "team player",
+        "collaboration",
+        "cross-functional"
+      ]
+    },
+    {
+      "canonical": "Agile",
+      "category": "soft_skill",
+      "aliases": [
+        "agile",
+        "scrum",
+        "agile methodology",
+        "sprint",
+        "jira"
+      ]
+    },
+    {
+      "canonical": "Leadership",
+      "category": "soft_skill",
+      "aliases": [
+        "leadership",
+        "team lead",
+        "mentoring"
+      ]
+    },
+    {
+      "canonical": "Selenium",
+      "category": "testing",
+      "aliases": [
+        "selenium",
+        "web scraping",
+        "beautifulsoup",
+        "scrapy",
+        "web automation"
+      ]
+    },
+    {
+      "canonical": "Unit Testing",
+      "category": "testing",
+      "aliases": [
+        "unit testing",
+        "pytest",
+        "jest",
+        "junit",
+        "testing",
+        "tdd"
+      ]
+    },
+    {
+      "canonical": "Postman",
+      "category": "testing",
+      "aliases": [
+        "postman",
+        "api testing"
+      ]
+    },
+    {
+      "canonical": "Blockchain",
+      "category": "emerging",
+      "aliases": [
+        "blockchain",
+        "web3",
+        "solidity",
+        "smart contracts",
+        "ethereum"
+      ]
+    },
+    {
+      "canonical": "Cybersecurity",
+      "category": "emerging",
+      "aliases": [
+        "cybersecurity",
+        "cyber security",
+        "information security",
+        "infosec",
+        "penetration testing"
+      ]
+    },
+    {
+      "canonical": "IoT",
+      "category": "emerging",
+      "aliases": [
+        "iot",
+        "internet of things",
+        "embedded systems"
+      ]
+    }
   ]
 }

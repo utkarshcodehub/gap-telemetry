@@ -22,7 +22,7 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
 - `core/extraction/demand.py` — document-frequency demand aggregation
 - `scraper/naukri_scraper.py` — Naukri JSON-API scraper (rate-limited, idempotent — run locally)
 - `scraper/synthetic_generator.py` — 500-posting probability-weighted fallback dataset
-- `core/db/store.py` — SQLite: shared market tables + user-scoped `saved_analyses`
+- `core/db/store.py` — Supabase (Postgres): shared market tables + user-scoped `saved_analyses`, RLS-enforced
 - `core/resume/parser.py` — pypdf extraction + scanned-PDF detection
 - `core/github_profile/fetcher.py` — GitHub REST API skill evidence
 - `core/gap/scorer.py` — demand-weighted readiness, percentile tiers, evidence levels
@@ -30,7 +30,9 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
 - `core/auth/verify.py` — Supabase JWT verification (JWKS prod / HS256 dev), see below
 - `app/settings.py`, `app/deps.py`, `app/main.py` — FastAPI: auth, CORS, upload limits, rate limiting
 - `frontend/` — React dashboard with Supabase login gate
-- `tests/` — 67 tests
+- `tests/` — 63 tests, real integration tests against the Supabase project
+  in `backend/.env` (a configured project incl. service-role key is
+  required to run them — see below)
 
 ## Auth & security (Day 6)
 
@@ -59,8 +61,7 @@ parsing, an LLM call) are limited via `slowapi`; defaults in `.env.example`.
 
 **What's still open, on purpose (see conversation notes):** the Naukri
 scraper hits an undocumented internal API — resolve the data-sourcing
-question before any commercial use. Migrating off SQLite to Postgres is
-deliberately deferred until real traffic shows it's needed.
+question before any commercial use.
 
 ## Setting up Supabase Auth
 
@@ -89,7 +90,12 @@ cd backend
 pip install -r requirements.txt
 python3 -m spacy download en_core_web_sm
 cp .env.example .env   # then edit — see "Setting up Supabase Auth" above
-python3 -m pytest tests/ -v      # 67 passed
+# Tests hit the real Supabase project above (incl. writing/truncating
+# postings/skills/saved_analyses and two test auth users) — point .env
+# at a disposable dev project, not one with data you care about.
+python3 -m pytest tests/ -v      # 63 passed
+# From the repo root, or use the direct script path from backend/.
+python3 -m scraper.naukri_scraper --role "machine learning intern" --pages 25
 python3 ../scraper/synthetic_generator.py --count 500 --seed 42
 uvicorn app.main:app --reload    # http://127.0.0.1:8000/docs
 
@@ -115,5 +121,5 @@ npm run dev             # http://localhost:5173
 4. **Document frequency, not term frequency** for demand — one posting spamming a skill 5x shouldn't inflate its market demand.
 5. **Demand-weighted readiness, not a skill count** — missing Python (90% demand) costs more than missing Terraform (10%).
 6. **JWKS over shared-secret JWT verification** — local, fast, no per-request network call to the auth provider, and keys can rotate without redeploying the backend.
-7. **SQL-level user scoping, not app-level checks** — the WHERE clause is the actual enforcement boundary for per-user data, the same principle as Postgres Row-Level Security, implemented by hand since SQLite has no native RLS.
+7. **SQL-level user scoping, not app-level checks** — `saved_analyses` has real Postgres Row-Level Security (`auth.uid() = user_id`, see `supabase/migrations/0001_core_schema.sql`), enforced by the database itself against the caller's own bearer token, not by an application-layer check. The app also adds an explicit `.eq("user_id", ...)` on every query as defense in depth, but RLS is what actually can't be bypassed.
 8. **Two roadmap engines (Groq + template)** — resilience (the product never dies from a missing API key) doubles as a ready-made LLM-vs-rule-based comparison for the evaluation chapter.
