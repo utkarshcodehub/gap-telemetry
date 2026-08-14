@@ -6,7 +6,17 @@
 async function jsonOrThrow(resp) {
   if (!resp.ok) {
     let detail = `HTTP ${resp.status}`;
-    try { detail = (await resp.json()).detail ?? detail; } catch { /* keep */ }
+    try {
+      const body = await resp.json();
+      if (Array.isArray(body.detail)) {
+        // FastAPI/Pydantic validation errors: [{type, loc, msg}, ...]
+        detail = body.detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+      } else if (typeof body.detail === 'string') {
+        detail = body.detail;
+      } else if (body.detail) {
+        detail = JSON.stringify(body.detail);
+      }
+    } catch { /* keep default */ }
     throw new Error(detail);
   }
   return resp.json();

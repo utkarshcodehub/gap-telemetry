@@ -37,6 +37,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from postgrest import APIError
 from pypdf import PdfReader
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -74,6 +76,20 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+
+def _postgrest_api_error_handler(request: Request, exc: APIError) -> JSONResponse:
+    """A bearer token that passes our own JWT verification but isn't a real
+    Supabase-issued session token still gets forwarded to PostgREST as-is
+    (see AnalysesStore) — PostgREST then rejects it and supabase-py raises
+    APIError. Surface that as a clean 401 instead of an unhandled 500."""
+    return JSONResponse(
+        status_code=401,
+        content={"detail": f"Session rejected by the database: {exc.message or 'unauthorized'}"},
+    )
+
+
+app.add_exception_handler(APIError, _postgrest_api_error_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -85,8 +101,11 @@ EXTRACTOR = SkillExtractor()
 MAX_UPLOAD_BYTES = settings.max_upload_mb * 1024 * 1024
 
 
+STORE = JobStore()
+
+
 def get_store() -> JobStore:
-    return JobStore()
+    return STORE
 
 
 def get_analyses_store(user: AuthUser) -> AnalysesStore:

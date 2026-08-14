@@ -23,11 +23,12 @@ from tests.test_db_ingest import make_record
 
 @pytest.fixture
 def client():
-    """Ingests straight into main.STORE — the same JobStore singleton the
-    app itself reads from (a real Supabase project, per .env) — so
-    /health, /roles, /market see exactly these 4 postings. No monkeypatch
-    needed: main.py has no get_store() to patch, it's a module-level
-    singleton already pointed at real settings.
+    """Ingests via main.get_store() — a fresh JobStore pointed at the same
+    real Supabase project the app itself reads from (per .env) — so
+    /health, /roles, /market see exactly these 4 postings. Every JobStore
+    instance talks to the same physical tables regardless of when it was
+    constructed, so this doesn't need to be the exact same Python object
+    the route handlers use.
 
     Note: bare TestClient(main.app) (no `with` block) never triggers the
     @app.on_event("startup") auto-seed handler — Starlette's TestClient
@@ -41,7 +42,7 @@ def client():
          make_record("2", "Python, Deep Learning, PyTorch", role="ml"),
          make_record("3", "Python, SQL, Docker", role="ml"),
          make_record("4", "Java, Spring Boot", role="backend")],
-        main.STORE, main.EXTRACTOR,
+        main.get_store(), main.EXTRACTOR,
     )
     return TestClient(main.app)
 
@@ -91,6 +92,15 @@ def test_analyze_with_expired_token_401(client, expired_token):
 def test_analyze_with_malformed_token_401(client):
     r = client.post("/analyze", data={"role": "ml", "resume_text": "Python"},
                     headers={"Authorization": "Bearer not-a-real-jwt"})
+    assert r.status_code == 401
+
+
+def test_analyses_with_dev_token_returns_401_not_500(client, auth_headers):
+    """auth_headers is a dev-minted HS256 token — it passes our own
+    get_current_user check, but /analyses forwards it straight to the real
+    Supabase project's PostgREST, which rejects it. That must surface as a
+    clean 401, not an unhandled 500 (see APIError handler in app/main.py)."""
+    r = client.get("/analyses", headers=auth_headers)
     assert r.status_code == 401
 
 
@@ -150,7 +160,16 @@ def test_roadmap_endpoint_template_fallback(client, auth_headers, monkeypatch):
     body = r.json()
     assert body["engine"] == "template"
     assert len(body["weeks"]) >= 1
-    assert body["weeks"][0]["skills"]
+
+
+def test_roadmap_with_zero_skills_succeeds(client, auth_headers):
+    """A resume that yields no recognized skills is a legitimate "start from
+    scratch" state, not a validation error — every market skill in the
+    basket becomes a gap. See RoadmapRequest.resume_skills in schemas.py."""
+    r = client.post("/roadmap", json={
+        "role": "ml", "resume_skills": [], "n_weeks": 2,
+    }, headers=auth_headers)
+    assert r.status_code == 200
 
 
 # ---------------- saved analyses: the actual isolation proof ----------------

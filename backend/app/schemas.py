@@ -62,7 +62,7 @@ class AnalyzeResponse(BaseModel):
 
 class RoadmapRequest(BaseModel):
     role: str
-    resume_skills: list[str] = Field(..., min_length=1)
+    resume_skills: list[str] = Field(default_factory=list)
     github_skills: dict[str, int] | None = None
     n_weeks: int = Field(default=6, ge=1, le=12)
 

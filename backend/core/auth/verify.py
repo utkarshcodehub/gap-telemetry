@@ -26,12 +26,14 @@ Either way we check: signature validity, expiry, and `aud == "authenticated"`
 else stops a token minted for some other purpose being replayed here).
 """
 
+import logging
 from dataclasses import dataclass
 
 import jwt
 from jwt import PyJWKClient
 
 EXPECTED_AUDIENCE = "authenticated"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,7 @@ class TokenVerifier:
                 # configured, rather than treating "not a real Supabase
                 # token" as a hard rejection. Both may be configured at
                 # once (see settings.py); this is what makes that real.
+                logger.warning("JWKS verification failed, falling back to HS256 if configured: %s", e)
                 if not self.hs256_secret:
                     raise AuthError(f"Invalid token: {e}") from e
 
