@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import { analyze, fetchRoles, getRoadmap, saveAnalysis } from './api';
 import { GapBoard, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
 import RoleFitPage from './RoleFitPage';
+import { applyTheme, getInitialTheme } from './theme';
+
+const FALLBACK_ROLES = [
+  { role: 'Frontend Engineer', postings: 120 },
+  { role: 'Backend Engineer', postings: 104 },
+  { role: 'Data Analyst', postings: 88 },
+  { role: 'Product Manager', postings: 76 },
+  { role: 'Full Stack Engineer', postings: 132 },
+];
 
 export default function App({ accessToken, userEmail, onSignOut }) {
   const [tab, setTab] = useState('telemetry'); // 'telemetry' | 'rolefit'
-  const [roles, setRoles] = useState([]);
-  const [role, setRole] = useState('');
+  const [roles, setRoles] = useState(FALLBACK_ROLES);
+  const [role, setRole] = useState(FALLBACK_ROLES[0].role);
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState(null);
   const [github, setGithub] = useState('');
@@ -18,13 +27,24 @@ export default function App({ accessToken, userEmail, onSignOut }) {
   const [roadmapBusy, setRoadmapBusy] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
   const fileRef = useRef(null);
+  const [theme, setTheme] = useState(getInitialTheme());
+
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   useEffect(() => {
     fetchRoles()
-      .then((r) => { setRoles(r); if (r.length) setRole(r[0].role); })
-      .catch(() => setError(
-        'Backend unreachable. Start it with: uvicorn app.main:app (from backend/), ' +
-        'and seed data with the synthetic generator.'));
+      .then((r) => {
+        const list = Array.isArray(r) && r.length ? r : FALLBACK_ROLES;
+        setRoles(list);
+        setRole((current) => current || list[0].role);
+      })
+      .catch(() => {
+        setRoles(FALLBACK_ROLES);
+        setRole((current) => current || FALLBACK_ROLES[0].role);
+        setError(
+          'Backend unreachable. Start it with: uvicorn app.main:app (from backend/), ' +
+          'and seed data with the synthetic generator.');
+      });
   }, []);
 
   async function onAnalyze() {
@@ -76,12 +96,21 @@ export default function App({ accessToken, userEmail, onSignOut }) {
     <>
       <header className="masthead">
         <div className="masthead-left">
-          <h1>Gap<span>·</span>Telemetry</h1>
-          <span className="sub">job-skill gap intelligence · market-weighted</span>
+          <div className="masthead-logo">GT</div>
+          <div>
+            <h1>Gap<span>·</span>Telemetry</h1>
+            <div className="sub">job-skill gap intelligence · market-weighted</div>
+          </div>
         </div>
-        <div className="user-chip">
-          {userEmail}
-          <button className="link" onClick={onSignOut}>Sign out</button>
+        <div className="masthead-right">
+          <button className="theme-toggle" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}>
+            {theme === 'dark' ? '☀ Light' : '● Dark'}
+          </button>
+          <div className="user-chip">
+            <span className="user-avatar">{userEmail?.[0]?.toUpperCase() ?? 'U'}</span>
+            {userEmail}
+            <button className="link" onClick={onSignOut}>Sign out</button>
+          </div>
         </div>
       </header>
 
@@ -103,7 +132,7 @@ export default function App({ accessToken, userEmail, onSignOut }) {
         <div className="form-grid">
           <div>
             <label htmlFor="role">Target role</label>
-            <select id="role" value={role} onChange={(e) => setRole(e.target.value)}>
+            <select id="role" value={role || roles[0]?.role || ''} onChange={(e) => setRole(e.target.value)}>
               {roles.map((r) => <option key={r.role} value={r.role}>{r.role} · {r.postings} postings</option>)}
             </select>
           </div>

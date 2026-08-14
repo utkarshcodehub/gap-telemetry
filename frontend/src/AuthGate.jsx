@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 import App from './App';
+import { applyTheme, getInitialTheme } from './theme';
 
 export default function AuthGate() {
   const [session, setSession] = useState(undefined); // undefined = still checking
@@ -10,6 +11,9 @@ export default function AuthGate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [theme, setTheme] = useState(getInitialTheme());
+
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -51,10 +55,14 @@ export default function AuthGate() {
 
   return (
     <div className="auth-wrap">
-      <header className="masthead" style={{ border: 'none', paddingBottom: 0, marginBottom: 8 }}>
+      <header className="masthead" style={{ border: 'none', paddingBottom: 0, marginBottom: 8, position: 'static' }}>
         <div className="masthead-left">
+          <div className="masthead-logo">GT</div>
           <h1>Gap<span>·</span>Telemetry</h1>
         </div>
+        <button className="theme-toggle" onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}>
+          {theme === 'dark' ? '☀ Light' : '● Dark'}
+        </button>
       </header>
       <section className="panel">
         <h2>{mode === 'signin' ? 'Sign in' : 'Create an account'}</h2>

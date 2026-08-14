@@ -89,6 +89,10 @@ def get_store() -> JobStore:
     return JobStore()
 
 
+def get_analyses_store(user: AuthUser) -> AnalysesStore:
+    return AnalysesStore(user_token=user.token)
+
+
 # ---------------------------------------------------------------- public
 
 @app.get("/health")
@@ -225,40 +229,53 @@ async def roadmap(
 
 @app.post("/analyses", response_model=SavedAnalysisMeta)
 async def save_analysis(req: SaveAnalysisRequest, user: AuthUser = Depends(get_current_user)):
-    store = AnalysesStore(user.token)
+    store = get_analyses_store(user)
     analysis_id = store.save_analysis(
-        user_id=user.id, role=req.role,
+        user_id=user.id,
+        role=req.role,
         readiness_score=req.report.readiness_score,
         report_json=req.report.model_dump_json(),
     )
     row = store.get_analysis(analysis_id, user.id)
-    return SavedAnalysisMeta(id=row["id"], role=row["role"],
-                             readiness_score=row["readiness_score"], created_at=row["created_at"])
+    if not row:
+        raise HTTPException(500, "Analysis saved but could not be retrieved")
+    return SavedAnalysisMeta(
+        id=row["id"],
+        role=row["role"],
+        readiness_score=row["readiness_score"],
+        created_at=row["created_at"],
+    )
 
 
 @app.get("/analyses", response_model=list[SavedAnalysisMeta])
 async def list_my_analyses(user: AuthUser = Depends(get_current_user)):
-    store = AnalysesStore(user.token)
-    return store.list_analyses(user.id)  # scoped to user.id by RLS — see store.py
+    store = get_analyses_store(user)
+    return store.list_analyses(user.id)  # scoped to user.id in SQL — see store.py
 
 
 @app.get("/analyses/{analysis_id}", response_model=SavedAnalysisFull)
 async def get_my_analysis(analysis_id: int, user: AuthUser = Depends(get_current_user)):
-    store = AnalysesStore(user.token)
+    store = get_analyses_store(user)
     row = store.get_analysis(analysis_id, user.id)
     if not row:
         # 404, not 403: don't confirm to a caller that a different
         # user's row even exists.
         raise HTTPException(404, "Analysis not found")
+    report_payload = row["report_json"]
+    if isinstance(report_payload, str):
+        report_payload = json.loads(report_payload)
     return SavedAnalysisFull(
-        id=row["id"], role=row["role"], readiness_score=row["readiness_score"],
-        created_at=row["created_at"], report=json.loads(row["report_json"]),
+        id=row["id"],
+        role=row["role"],
+        readiness_score=row["readiness_score"],
+        created_at=row["created_at"],
+        report=report_payload,
     )
 
 
 @app.delete("/analyses/{analysis_id}")
 async def delete_my_analysis(analysis_id: int, user: AuthUser = Depends(get_current_user)):
-    store = AnalysesStore(user.token)
+    store = get_analyses_store(user)
     deleted = store.delete_analysis(analysis_id, user.id)
     if not deleted:
         raise HTTPException(404, "Analysis not found")
@@ -367,3 +384,5 @@ async def role_fit(
         "resume_skills_found": sorted(profile.skill_names),
     }
 
+from app.role_fit_direct import register_role_fit_direct
+register_role_fit_direct(app, settings, limiter, EXTRACTOR)
