@@ -6,9 +6,13 @@ const TIER_META = {
   nice_to_have: { compound: 'H', color: 'var(--hard)', label: 'Nice to have' },
 };
 
+export function readinessColor(score) {
+  return score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--medium)' : 'var(--soft)';
+}
+
 export function ReadinessGauge({ report }) {
   const score = report.readiness_score;
-  const color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--medium)' : 'var(--soft)';
+  const color = readinessColor(score);
   const SEGMENTS = 24;
   const lit = Math.round((score / 100) * SEGMENTS);
 
@@ -110,11 +114,58 @@ export function StrengthsPanel({ report }) {
   );
 }
 
+export function GitHubEvidencePanel({ githubStatus, report }) {
+  if (!githubStatus || githubStatus === 'not_requested') return null;
+  if (!githubStatus.startsWith('ok')) {
+    return (
+      <section className="panel">
+        <h2>GitHub evidence</h2>
+        <div className="error">Couldn't use GitHub evidence: {githubStatus.replace(/^skipped: /, '')}</div>
+      </section>
+    );
+  }
+
+  const hiddenNames = new Set(report.hidden_strengths.map((h) => h.canonical));
+  const contributed = report.strengths.filter((s) => s.evidence === 'github' || s.evidence === 'resume+github');
+  const repoMatch = githubStatus.match(/\((\d+) repos?\)/);
+  const repoCount = repoMatch ? repoMatch[1] : '?';
+
+  return (
+    <section className="panel">
+      <h2>GitHub evidence <span className="engine-tag">{repoCount} public repos scanned</span></h2>
+      {contributed.length === 0 ? (
+        <p className="history-empty">No skills beyond your resume were found in your public repos — either everything overlaps with your resume, or your repos don't showcase market-relevant skills yet.</p>
+      ) : (
+        <>
+          <p style={{ marginBottom: 10, fontSize: 13, color: 'var(--muted)' }}>
+            {hiddenNames.size > 0
+              ? `${hiddenNames.size} skill${hiddenNames.size > 1 ? 's were' : ' was'} found only in your repos, not your resume:`
+              : 'Skills your repos confirmed (already on your resume too):'}
+          </p>
+          {contributed.map((s) => {
+            const isNew = hiddenNames.has(s.canonical);
+            return (
+              <div className="skill-row" key={s.canonical}>
+                <div>
+                  <span className="name">{s.canonical}</span>
+                  <span className="cat">{s.category.replace(/_/g, ' ')} · {s.github_repos} repo{s.github_repos > 1 ? 's' : ''}</span>
+                </div>
+                <div className="bar"><i style={{ width: `${s.demand_pct}%`, background: isNew ? 'var(--cyan)' : 'var(--green)' }} /></div>
+                <span className={`badge ${isNew ? 'github' : 'both'}`}>{isNew ? 'new · github only' : 'confirmed'}</span>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function RoadmapTimeline({ roadmap }) {
   return (
     <section className="panel">
       <h2>Learning roadmap
-        <span className="engine-tag"> engine: {roadmap.engine === 'groq' ? 'Groq · LLaMA 3.3-70b' : 'rule-based fallback'}</span>
+        <span className="engine-tag"> engine: {roadmap.engine === 'groq' ? 'AI-generated' : 'rule-based fallback'}</span>
       </h2>
       {roadmap.summary && <p style={{ marginBottom: 10 }}>{roadmap.summary}</p>}
       <div className="stints">

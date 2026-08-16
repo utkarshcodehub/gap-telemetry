@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { analyze, fetchRoles, getRoadmap, saveAnalysis } from './api';
-import { GapBoard, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
+import { GapBoard, GitHubEvidencePanel, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
+import HistoryPanel from './HistoryPanel';
 import RoleFitPage from './RoleFitPage';
 import { applyTheme, getInitialTheme } from './theme';
 
@@ -28,6 +29,9 @@ export default function App({ accessToken, userEmail, onSignOut }) {
   const [saveStatus, setSaveStatus] = useState('');
   const fileRef = useRef(null);
   const [theme, setTheme] = useState(getInitialTheme());
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
+  const [githubStatus, setGithubStatus] = useState('');
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
@@ -53,13 +57,14 @@ export default function App({ accessToken, userEmail, onSignOut }) {
   }, []);
 
   async function onAnalyze() {
-    setBusy(true); setError(''); setResult(null); setRoadmap(null); setSaveStatus('');
+    setBusy(true); setError(''); setResult(null); setRoadmap(null); setSaveStatus(''); setGithubStatus('');
     try {
       const data = await analyze({
         role, resumeText: resumeText.trim() || null, resumeFile,
         githubUsername: github.trim() || null, accessToken,
       });
       setResult(data);
+      setGithubStatus(data.github_status || '');
     } catch (e) {
       setError(e.message);
     } finally {
@@ -92,6 +97,7 @@ export default function App({ accessToken, userEmail, onSignOut }) {
     try {
       await saveAnalysis({ role: result.report.role, report: result.report, accessToken });
       setSaveStatus('Saved to your account ✓');
+      setHistoryRefreshKey((k) => k + 1);
     } catch (e) {
       setSaveStatus(`Couldn't save: ${e.message}`);
     }
@@ -133,6 +139,13 @@ export default function App({ accessToken, userEmail, onSignOut }) {
       ) : (
       <>
       <section className="panel">
+        <h2 style={{ cursor: 'pointer' }} onClick={() => setHistoryOpen((o) => !o)}>
+          Saved analyses {historyOpen ? '▾' : '▸'}
+        </h2>
+        {historyOpen && <HistoryPanel accessToken={accessToken} refreshKey={historyRefreshKey} />}
+      </section>
+
+      <section className="panel">
         <h2>Session setup</h2>
         <div className="form-grid">
           <div>
@@ -144,6 +157,11 @@ export default function App({ accessToken, userEmail, onSignOut }) {
           <div>
             <label htmlFor="gh">GitHub username (optional)</label>
             <input id="gh" type="text" placeholder="e.g. utkarshcodehub" value={github} onChange={(e) => setGithub(e.target.value)} />
+            {githubStatus && githubStatus !== 'not_requested' && (
+              <div className={`gh-status ${githubStatus.startsWith('ok') ? 'ok' : 'warn'}`}>
+                {githubStatus.startsWith('ok') ? `✓ GitHub: ${githubStatus} — see "GitHub evidence" below` : `⚠ GitHub: ${githubStatus}`}
+              </div>
+            )}
           </div>
           <div className="full">
             <label htmlFor="file">Resume PDF</label>
@@ -173,6 +191,7 @@ export default function App({ accessToken, userEmail, onSignOut }) {
         <>
           <ReadinessGauge report={result.report} />
           <StrengthsPanel report={result.report} />
+          <GitHubEvidencePanel githubStatus={githubStatus} report={result.report} />
           <GapBoard gaps={result.report.gaps} />
           <section className="panel">
             <h2>Next steps</h2>

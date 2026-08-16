@@ -64,6 +64,16 @@ export async function listSavedAnalyses({ accessToken }) {
   return jsonOrThrow(await fetch('/api/analyses', { headers: authHeader(accessToken) }));
 }
 
+export async function getSavedAnalysis(id, { accessToken }) {
+  return jsonOrThrow(await fetch(`/api/analyses/${id}`, { headers: authHeader(accessToken) }));
+}
+
+export async function deleteSavedAnalysis(id, { accessToken }) {
+  return jsonOrThrow(await fetch(`/api/analyses/${id}`, {
+    method: 'DELETE', headers: authHeader(accessToken),
+  }));
+}
+
 export async function fetchListings() {
   return jsonOrThrow(await fetch('/api/listings'));
 }
