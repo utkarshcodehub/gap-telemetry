@@ -38,11 +38,11 @@ from ingest import ingest_postings                  # noqa: E402
 API_URL = "https://www.naukri.com/jobapi/v3/search"
 
 HEADERS = {
-    "appid": "109",
-    "systemid": "Naukri",
-    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                   "AppleWebKit/537.36 (KHTML, like Gecko) "
-                   "Chrome/126.0 Safari/537.36"),
+    "appid": "135",
+    "systemid": "135",
+    "User-Agent": ("Mozilla/5.0 (Linux; Android 15; Pixel 9)"
+                    " AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/151.0.0.0 Mobile Safari/537.36"),
     "Accept": "application/json",
 }
 
