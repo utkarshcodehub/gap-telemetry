@@ -134,7 +134,13 @@ def test_github_fetcher_parses_repos(monkeypatch):
         def json(self): return fake_repos
         def raise_for_status(self): pass
 
-    monkeypatch.setattr(gh.requests, "get", lambda *a, **k: FakeResp())
+    class FakeReadmeResp:
+        status_code = 404  # no README on any of these fake repos
+
+    def fake_get(url, *a, **k):
+        return FakeReadmeResp() if "/readme" in url else FakeResp()
+
+    monkeypatch.setattr(gh.requests, "get", fake_get)
     profile = gh.fetch_github_profile("testuser")
 
     assert profile.repo_count == 2

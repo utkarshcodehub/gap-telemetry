@@ -202,7 +202,7 @@ async def analyze(
     github_status = "not_requested"
     if github_username:
         try:
-            gh = fetch_github_profile(github_username, EXTRACTOR)
+            gh = fetch_github_profile(github_username, EXTRACTOR, token=settings.github_token)
             github_skills = gh.skills
             github_status = f"ok ({gh.repo_count} repos)"
         except GitHubFetchError as e:
@@ -240,7 +240,7 @@ async def roadmap(
         raise HTTPException(404, f"No market data for role '{req.role}'.")
 
     report = score_gap(req.role, demand, set(req.resume_skills), req.github_skills or {})
-    plan = generate_roadmap(report, n_weeks=req.n_weeks)
+    plan = generate_roadmap(report, n_weeks=req.n_weeks, api_key=settings.groq_api_key)
     return RoadmapModel(**plan.to_dict())
 
 

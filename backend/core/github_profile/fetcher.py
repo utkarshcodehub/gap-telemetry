@@ -10,6 +10,15 @@ from core.extraction.extractor import SkillExtractor
 
 API = "https://api.github.com"
 
+# Repo name/description/topics/language alone are often empty on personal
+# projects (nobody fills in the "About" box) and yield zero extracted
+# skills even for substantial repos. README content is far denser signal,
+# but fetching one per repo is a separate API call each — cap it so a
+# single analysis can't blow through the unauthenticated 60 req/hr limit
+# (or take forever even with a token) on someone with 100 repos.
+README_FETCH_LIMIT = 20
+README_MAX_CHARS = 4000
+
 
 @dataclass(frozen=True)
 class GitHubProfile:
@@ -25,6 +34,20 @@ class GitHubProfile:
 
 class GitHubFetchError(Exception):
     pass
+
+
+def _fetch_readme_text(username: str, repo_name: str, headers: dict, timeout: int) -> str:
+    try:
+        resp = requests.get(
+            f"{API}/repos/{username}/{repo_name}/readme",
+            headers={**headers, "Accept": "application/vnd.github.raw"},
+            timeout=timeout,
+        )
+        if resp.status_code == 200:
+            return resp.text[:README_MAX_CHARS]
+    except requests.RequestException:
+        pass
+    return ""
 
 
 def fetch_github_profile(
@@ -53,14 +76,20 @@ def fetch_github_profile(
     skill_repo_count: dict[str, int] = {}
     languages: dict[str, int] = {}
 
+    readmes_fetched = 0
     for repo in repos:
         if repo.get("fork"):
             continue
+        readme_text = ""
+        if readmes_fetched < README_FETCH_LIMIT:
+            readme_text = _fetch_readme_text(username, repo.get("name", ""), headers, timeout)
+            readmes_fetched += 1
         evidence_text = " ".join(filter(None, [
             repo.get("name", "").replace("-", " ").replace("_", " "),
             repo.get("description") or "",
             " ".join(repo.get("topics", [])).replace("-", " "),
             repo.get("language") or "",
+            readme_text,
         ]))
         lang = repo.get("language")
         if lang:

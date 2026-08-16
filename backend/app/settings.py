@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # --- LLM ---
     groq_api_key: str | None = None
 
+    # --- GitHub (optional — raises the unauthenticated 60 req/hr limit) ---
+    github_token: str | None = None
+
     @property
     def supabase_jwks_url(self) -> str | None:
         if not self.supabase_url:
