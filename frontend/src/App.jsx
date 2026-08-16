@@ -36,11 +36,16 @@ export default function App({ accessToken, userEmail, onSignOut }) {
       .then((r) => {
         const list = Array.isArray(r) && r.length ? r : FALLBACK_ROLES;
         setRoles(list);
-        setRole((current) => current || list[0].role);
+        // Keep the current selection only if it's still a valid option in
+        // the freshly-fetched list — otherwise the <select>'s value points
+        // at a role that no longer has a matching <option> (stale fallback
+        // name vs. real seeded roles), which renders blank and sends a
+        // role /analyze has no market data for.
+        setRole((current) => (list.some((r) => r.role === current) ? current : list[0].role));
       })
       .catch(() => {
         setRoles(FALLBACK_ROLES);
-        setRole((current) => current || FALLBACK_ROLES[0].role);
+        setRole((current) => (FALLBACK_ROLES.some((r) => r.role === current) ? current : FALLBACK_ROLES[0].role));
         setError(
           'Backend unreachable. Start it with: uvicorn app.main:app (from backend/), ' +
           'and seed data with the synthetic generator.');
