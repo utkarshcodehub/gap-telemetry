@@ -85,9 +85,10 @@ def build(store: JobStore) -> dict:
         "schema": 1,
         "kind": "claim-only baseline (pre-evidence-engine)",
         "note": (
-            "Golden-output baseline, not an accuracy measurement. Records BOTH "
-            "candidate definitions of claimed_readiness because "
-            "docs/EVIDENCE_MODEL.md section 8.1 leaves that choice open."
+            "Golden-output baseline, not an accuracy measurement. "
+            "claimed_readiness is resume-only (EVIDENCE_MODEL section 8.1); "
+            "legacy_union_readiness is the pre-evidence-model shipped number, "
+            "kept as a labelled reference and never the baseline."
         ),
         "corpus": {"market": "IN", "sources": provenance,
                    "total_postings": sum(p["postings"] for p in provenance)},
@@ -134,8 +135,8 @@ def main() -> None:
             for role in sorted(set(a) | set(b)):
                 if a.get(role) != b.get(role):
                     print(f"  {profile} / {role}:")
-                    for key in ("readiness_resume_only", "readiness_union",
-                                "delta_union_minus_resume_only", "n_gaps"):
+                    for key in ("claimed_readiness", "legacy_union_readiness",
+                                "delta_legacy_minus_claimed", "n_gaps"):
                         av, bv = a.get(role, {}).get(key), b.get(role, {}).get(key)
                         if av != bv:
                             print(f"      {key}: {av} -> {bv}")
@@ -149,8 +150,8 @@ def main() -> None:
           f"corpus {fresh['corpus']['total_postings']} postings")
     for name in sorted(PROFILES):
         rows = fresh["results"][name]
-        ro = sum(r["readiness_resume_only"] for r in rows) / len(rows)
-        un = sum(r["readiness_union"] for r in rows) / len(rows)
+        ro = sum(r["claimed_readiness"] for r in rows) / len(rows)
+        un = sum(r["legacy_union_readiness"] for r in rows) / len(rows)
         print(f"  {name:<22} mean readiness: resume-only {ro:5.1f}  "
               f"union {un:5.1f}  (delta {un - ro:+.1f})")
 

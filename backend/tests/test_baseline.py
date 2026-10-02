@@ -27,7 +27,7 @@ MARKET = [
 
 def test_resume_only_readiness_is_demand_weighted():
     b = baseline_for_role("r", MARKET, {"Python"})
-    assert b.readiness_resume_only == 60.0, "Python is 60 of 100 basket demand"
+    assert b.claimed_readiness == 60.0, "Python is 60 of 100 basket demand"
     assert b.basket_size == 3, "soft skills and sub-threshold skills are excluded"
 
 
@@ -42,9 +42,9 @@ def test_github_corroborating_the_resume_moves_the_score_by_nothing():
     """
     b = baseline_for_role("r", MARKET, {"Python", "Docker"},
                           {"Python": 5, "Docker": 3})
-    assert b.readiness_resume_only == 90.0
-    assert b.readiness_union == 90.0
-    assert b.delta_union_minus_resume_only == 0.0, (
+    assert b.claimed_readiness == 90.0
+    assert b.legacy_union_readiness == 90.0
+    assert b.delta_legacy_minus_claimed == 0.0, (
         "five repos of corroborating Python evidence must currently change "
         "nothing -- if this ever becomes non-zero, scoring has changed"
     )
@@ -52,27 +52,30 @@ def test_github_corroborating_the_resume_moves_the_score_by_nothing():
 
 def test_github_only_skills_are_the_sole_way_github_moves_the_score():
     b = baseline_for_role("r", MARKET, {"Python"}, {"Docker": 2})
-    assert b.readiness_resume_only == 60.0
-    assert b.readiness_union == 90.0
-    assert b.delta_union_minus_resume_only == 30.0
+    assert b.claimed_readiness == 60.0
+    assert b.legacy_union_readiness == 90.0
+    assert b.delta_legacy_minus_claimed == 30.0
     assert b.n_hidden_strengths == 1, "Docker is on GitHub but not claimed"
 
 
-def test_both_readiness_definitions_are_recorded():
-    """docs/EVIDENCE_MODEL.md section 8.1: the plan defines claimed_readiness two
-    incompatible ways. Both are measured so the choice can be made later without
-    re-running anything, and neither is privileged here."""
+def test_the_baseline_is_resume_only_and_legacy_is_kept_as_reference():
+    """EVIDENCE_MODEL section 8.1 (decided): claimed_readiness is resume-only.
+
+    It is E1's control condition, so it must be a pure self-report -- a baseline
+    containing GitHub signal would credit the control with part of the treatment.
+    The shipped union number is retained, labelled legacy, as a reference only.
+    """
     b = baseline_for_role("r", MARKET, {"Python"}, {"Docker": 1})
     d = as_dict(b)
-    assert "readiness_resume_only" in d
-    assert "readiness_union" in d
-    assert "delta_union_minus_resume_only" in d
+    assert "claimed_readiness" in d
+    assert "legacy_union_readiness" in d
+    assert "delta_legacy_minus_claimed" in d
 
 
 def test_empty_profile_is_a_legitimate_state_not_an_error():
     b = baseline_for_role("r", MARKET, set(), {})
-    assert b.readiness_resume_only == 0.0
-    assert b.readiness_union == 0.0
+    assert b.claimed_readiness == 0.0
+    assert b.legacy_union_readiness == 0.0
     assert b.n_gaps == 3, "every basket skill becomes a gap"
 
 
@@ -100,6 +103,6 @@ def test_is_deterministic():
 
 def test_an_empty_market_does_not_divide_by_zero():
     b = baseline_for_role("r", [], {"Python"}, {"Python": 1})
-    assert b.readiness_resume_only == 0.0
-    assert b.readiness_union == 0.0
+    assert b.claimed_readiness == 0.0
+    assert b.legacy_union_readiness == 0.0
     assert b.basket_size == 0

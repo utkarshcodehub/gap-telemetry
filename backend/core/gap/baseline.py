@@ -11,12 +11,15 @@ GOLDEN-OUTPUT baseline, not an accuracy measurement -- accuracy needs labelled
 ground truth, which arrives with Dataset A in Increment 3. What it gives now is the
 ability to say exactly what changed and by how much, the moment scoring moves.
 
-It records TWO readiness numbers on purpose. `docs/EVIDENCE_MODEL.md` §8.1 records
-that the plan defines `claimed_readiness` two incompatible ways -- "counting every
-claim" (resume only) versus "today's number" (resume UNION github). That is a
-research-design decision belonging to the project owner, so both are measured and
-neither is privileged. Whichever is chosen later, the baseline already holds it and
-nothing needs re-running.
+`claimed_readiness` is RESUME-ONLY (decided, `docs/EVIDENCE_MODEL.md` §8.1). It is
+the control condition in E1, so it has to be a pure self-report: a baseline that
+already contained GitHub signal would credit the control with part of the treatment
+and understate the measured effect.
+
+`legacy_union_readiness` records the `resume | github` behaviour this codebase
+shipped before the evidence model. It is kept as a labelled reference -- for the
+report, and because the regression tests pin it -- and is never the baseline and
+never shown to a candidate.
 """
 
 from __future__ import annotations
@@ -32,16 +35,14 @@ class RoleBaseline:
     role: str
     basket_size: int
 
-    #: Resume claims only. The candidate baseline under the "counting every
-    #: claim" reading of claimed_readiness.
-    readiness_resume_only: float
-    #: Today's shipped behaviour: resume_skills | set(github_skills). The
-    #: candidate baseline under the "today's number" reading.
-    readiness_union: float
-    #: How much GitHub signal already contributes. If the union reading is chosen
-    #: as the baseline, this is the gain the evidence engine does NOT get credit
-    #: for, because it is already counted.
-    delta_union_minus_resume_only: float
+    #: THE BASELINE: resume claims only, nothing else (EVIDENCE_MODEL section 8.1).
+    claimed_readiness: float
+    #: Reference only -- the shipped `resume_skills | set(github_skills)` number.
+    #: Labelled legacy, never the baseline, never shown to a candidate.
+    legacy_union_readiness: float
+    #: Exactly the amount a union baseline would have wrongly credited to E1's
+    #: control condition. Useful to report: it quantifies why section 8.1 matters.
+    delta_legacy_minus_claimed: float
 
     n_gaps: int
     gaps_by_tier: dict[str, int]
@@ -86,9 +87,9 @@ def baseline_for_role(
     return RoleBaseline(
         role=role,
         basket_size=union.total_market_skills,
-        readiness_resume_only=resume_only.readiness_score,
-        readiness_union=union.readiness_score,
-        delta_union_minus_resume_only=round(
+        claimed_readiness=resume_only.readiness_score,
+        legacy_union_readiness=union.readiness_score,
+        delta_legacy_minus_claimed=round(
             union.readiness_score - resume_only.readiness_score, 1
         ),
         **summary,
