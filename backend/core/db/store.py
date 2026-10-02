@@ -52,6 +52,24 @@ class PostingRecord:
     description: str
     role_query: str
 
+    #: Which market this posting describes. Demand is never aggregated across
+    #: markets (see migration 0003), so a loader for a non-India source MUST
+    #: set this explicitly. Defaults to 'IN' because every source currently
+    #: ingested is Indian.
+    market: str = "IN"
+
+    #: Full text to run skill extraction against, when `description` holds only
+    #: a stored excerpt. Bulk corpora have ~1.4-4 KB descriptions; storing them
+    #: all would exhaust the 500 MB free-tier database, but extracting from a
+    #: truncated excerpt would silently undercount demand. So loaders put the
+    #: excerpt in `description` and the full text here. None means
+    #: `description` is already complete.
+    extract_text: str | None = None
+
+    @property
+    def text_for_extraction(self) -> str:
+        return self.extract_text or self.description
+
 
 class JobStore:
     """Admin-privileged: market data only. Never used for saved_analyses."""
@@ -97,6 +115,7 @@ class JobStore:
                     "salary": p.salary,
                     "description": p.description,
                     "role_query": p.role_query,
+                    "market": p.market,
                 },
                 on_conflict="source,external_id",
                 ignore_duplicates=True,
@@ -118,6 +137,104 @@ class JobStore:
         self._require_write_access()
         self.client.table("posting_skills").upsert(
             {"posting_id": posting_id, "skill_id": skill_id, "mention_count": count},
+            on_conflict="posting_id,skill_id",
+        ).execute()
+
+    # ---------- batch writes (used by ingest.py) ----------
+    #
+    # The per-row methods above cost one HTTP round trip each, so ingesting a
+    # real corpus meant ~15 requests per posting (1 posting + 2 per extracted
+    # skill). At 790 postings that is ~11,800 requests, and Supabase closed the
+    # connection partway through. These batch equivalents bring the same work
+    # down to roughly two requests per 100 postings plus one per distinct skill.
+
+    def existing_posting_ids(self, source: str, external_ids: list[str]) -> dict[str, int]:
+        """Map external_id -> id for postings of `source` that already exist.
+
+        Needed to keep ingest_postings' "number of NEW postings" return value
+        honest, since a merge-upsert can't distinguish inserts from updates.
+        """
+        if not external_ids:
+            return {}
+        resp = (
+            self.client.table("postings")
+            .select("id,external_id")
+            .eq("source", source)
+            .in_("external_id", external_ids)
+            .execute()
+        )
+        return {r["external_id"]: r["id"] for r in (resp.data or [])}
+
+    def upsert_postings(
+        self, records: list[PostingRecord]
+    ) -> dict[tuple[str, str], int]:
+        """Upsert a batch and return (source, external_id) -> id for ALL of them.
+
+        Keyed on the composite rather than external_id alone, because that is the
+        table's real uniqueness constraint -- two sources may legitimately use
+        the same external id.
+
+        Uses a merging upsert (not ignore_duplicates) specifically so that rows
+        which already exist still come back with their ids. That is what makes a
+        re-run after a crash able to attach skills to postings written by the
+        previous attempt -- see the bug note in ingest.py.
+        """
+        if not records:
+            return {}
+        self._require_write_access()
+        resp = (
+            self.client.table("postings")
+            .upsert(
+                [
+                    {
+                        "source": p.source,
+                        "external_id": p.external_id,
+                        "title": p.title,
+                        "company": p.company,
+                        "location": p.location,
+                        "experience": p.experience,
+                        "salary": p.salary,
+                        "description": p.description,
+                        "role_query": p.role_query,
+                        "market": p.market,
+                    }
+                    for p in records
+                ],
+                on_conflict="source,external_id",
+            )
+            .execute()
+        )
+        return {(r["source"], r["external_id"]): r["id"] for r in (resp.data or [])}
+
+    def upsert_skills(self, skills: dict[str, str]) -> dict[str, int]:
+        """Upsert {canonical: category} in one request; return canonical -> id."""
+        if not skills:
+            return {}
+        self._require_write_access()
+        resp = (
+            self.client.table("skills")
+            .upsert(
+                [{"canonical": c, "category": cat} for c, cat in skills.items()],
+                on_conflict="canonical",
+            )
+            .execute()
+        )
+        return {r["canonical"]: r["id"] for r in (resp.data or [])}
+
+    def link_skills(self, links: list[tuple[int, int, int]]) -> None:
+        """Bulk-upsert (posting_id, skill_id, mention_count) rows.
+
+        Idempotent: the table's primary key is (posting_id, skill_id), so
+        re-linking after a partial run overwrites rather than duplicating.
+        """
+        if not links:
+            return
+        self._require_write_access()
+        self.client.table("posting_skills").upsert(
+            [
+                {"posting_id": pid, "skill_id": sid, "mention_count": n}
+                for pid, sid, n in links
+            ],
             on_conflict="posting_id,skill_id",
         ).execute()
 

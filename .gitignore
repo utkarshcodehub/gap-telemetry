@@ -14,8 +14,12 @@ backend/venv/
 node_modules/
 frontend/dist/
 
-# --- Local data (regenerated via synthetic_generator.py or Supabase) ---
-backend/data/
+# --- Local data: downloaded corpora, never committed (see data/README.md) ---
+# NOTE the trailing /* rather than /. Git cannot re-include a file from inside a
+# directory that is itself excluded, so with "backend/data/" the negation below
+# would silently do nothing and the provenance file would stay untracked.
+backend/data/*
+!backend/data/README.md
 
 # --- Claude Code local tool state ---
 .claude/

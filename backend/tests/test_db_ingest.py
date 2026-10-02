@@ -43,6 +43,36 @@ def test_idempotent_reingest(store):
     assert store.posting_count() == 1
 
 
+def test_reingest_repairs_a_posting_left_without_skills(store):
+    """Regression: a crashed ingest must be repairable by re-running.
+
+    The original per-row ingest did `if posting_id is None: continue` when a
+    posting already existed, so any posting written before a crash was skipped
+    forever and never got its skills linked. Those rows then drag every demand
+    percentage DOWN -- they inflate the denominator while counting toward no
+    skill -- and the re-run looks successful. The live JSearch feed runs
+    incrementally, so this would have accumulated silently.
+    """
+    rec = make_record("crashed-1", "Python and Docker and SQL", role="ml")
+
+    # Simulate the crash: the posting row lands, its skill links never do.
+    ids = store.upsert_postings([rec])
+    posting_id = ids[(rec.source, rec.external_id)]
+    assert store.posting_count() == 1
+    assert store.demand("ml") == [], "precondition: no skills linked yet"
+
+    # Re-running must attach the skills to the EXISTING row, not skip it.
+    newly = ingest_postings([rec], store)
+    assert newly == 0, "the posting already existed, so it isn't newly inserted"
+    assert store.posting_count() == 1, "and it must not be duplicated"
+
+    linked = {d["canonical"] for d in store.demand("ml")}
+    assert {"Python", "Docker", "SQL"} <= linked, (
+        f"skills were not repaired on re-ingest; got {linked}"
+    )
+    assert posting_id == store.upsert_postings([rec])[(rec.source, rec.external_id)]
+
+
 def test_demand_from_sql(store):
     ingest_postings([make_record("1", "Python, SQL"), make_record("2", "Python and Docker"),
                      make_record("3", "Java only")], store)
