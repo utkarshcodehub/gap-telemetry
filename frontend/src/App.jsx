@@ -251,7 +251,7 @@ export default function App({ accessToken, userEmail, onSignOut }) {
 
       {result && (
         <>
-          <ReadinessGauge report={result.report} />
+          <ReadinessGauge report={result.report} evidence={result.evidence} />
           <StrengthsPanel report={result.report} />
           <EvidenceSummary evidence={result.evidence} />
           <GitHubEvidencePanel githubStatus={githubStatus} report={result.report} />

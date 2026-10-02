@@ -238,10 +238,15 @@ async def analyze(
     # it, so both can be compared against the recorded baseline before anything
     # is switched over. It needs the artifact collector, not the old README
     # keyword fetcher, so it only runs when a username was supplied.
-    evidence_model = None
-    if github_username and gh_status.evidence_used:
-        evidence_model = _evidence_for(github_username.strip(), role, demand,
-                                       profile.skill_names)
+    # Always computed, even with no GitHub username: claimed_readiness needs only
+    # the resume and the market, so the UI always has a number to show. Without
+    # evidence, verified is 0 and coverage is None -- "we could not check", which
+    # is a different statement from "you scored zero".
+    evidence_model = _evidence_for(
+        github_username.strip() if (github_username and gh_status.evidence_used) else None,
+        role, demand, profile.skill_names,
+        legacy_union=report.readiness_score,
+    )
 
     return AnalyzeResponse(
         report=GapReportModel.from_report(report),
@@ -251,30 +256,41 @@ async def analyze(
     )
 
 
-def _evidence_for(username: str, role: str, demand: list[dict],
-                  claimed: set[str]) -> EvidenceReportModel | None:
-    """Collect artifact evidence and score it. Returns None if collection fails.
+def _evidence_for(username: str | None, role: str, demand: list[dict],
+                  claimed: set[str], *,
+                  legacy_union: float) -> EvidenceReportModel:
+    """Score the claims, with artifact evidence when a username is available.
 
-    Deliberately swallows collection failures: the legacy score in the response is
-    still valid, and a GitHub problem must not fail the whole analysis (NFR-4).
+    Never returns None and never raises: a GitHub problem degrades the VERIFIED
+    half while claimed_readiness -- which needs no GitHub at all -- still stands
+    (NFR-4). The explicit github status in the same response says what happened.
     """
-    try:
-        client = GitHubClient(
-            token=settings.github_token,
-            budget=RequestBudget(limit=150),
-            cache_dir=EVIDENCE_CACHE_DIR,
-        )
-        gh = collect_profile(client, username)
-        evidence = evidence_from_profile(gh)
-        rep = score_evidence(
-            demand, claimed, evidence,
-            profile_partial=gh.partial,
-            # Off until Dataset A validates the rule; a claim that would be
-            # contradicted reports UNVERIFIABLE instead (EVIDENCE_MODEL 8.8).
-            reveal_contradictions=settings.reveal_contradicted_verdict,
-        )
-    except Exception:
-        return None
+    evidence: list = []
+    partial = False
+    repos = 0
+
+    if username:
+        try:
+            client = GitHubClient(
+                token=settings.github_token,
+                budget=RequestBudget(limit=150),
+                cache_dir=EVIDENCE_CACHE_DIR,
+            )
+            gh = collect_profile(client, username)
+            evidence = evidence_from_profile(gh)
+            partial, repos = gh.partial, len(gh.repos)
+        except Exception:
+            # Collection failed outright. Fall through with no evidence rather
+            # than failing the analysis; verified will be 0 and coverage None.
+            partial = True
+
+    rep = score_evidence(
+        demand, claimed, evidence,
+        profile_partial=partial,
+        # Off until Dataset A validates the rule; a claim that would be
+        # contradicted reports UNVERIFIABLE instead (EVIDENCE_MODEL 8.8).
+        reveal_contradictions=settings.reveal_contradicted_verdict,
+    )
 
     return EvidenceReportModel(
         claimed_readiness=rep.claimed_readiness,
@@ -293,8 +309,9 @@ def _evidence_for(username: str, role: str, demand: list[dict],
         ],
         attested_skills=list(rep.attested_skills),
         unclaimed_verified_skills=list(rep.unclaimed_verified_skills),
-        profile_partial=gh.partial,
-        repos_analysed=len(gh.repos),
+        profile_partial=partial,
+        repos_analysed=repos,
+        legacy_union_readiness=legacy_union,
     )
 
 

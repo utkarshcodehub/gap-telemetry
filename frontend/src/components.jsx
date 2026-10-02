@@ -10,37 +10,79 @@ export function readinessColor(score) {
   return score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--medium)' : 'var(--soft)';
 }
 
-export function ReadinessGauge({ report }) {
-  const score = report.readiness_score;
-  const color = readinessColor(score);
+/**
+ * The headline gauge: VERIFIED readiness filled, CLAIMED marked on the same arc.
+ *
+ * The gap between them is the product, so it is drawn rather than described. The
+ * legacy `resume | github` union score is deliberately NOT shown anywhere — it
+ * still ships in the API for the report and the regression tests, but a
+ * two-number story only reads clearly when there are exactly two numbers, and
+ * this page briefly had three.
+ *
+ * With no GitHub evidence, claimed is shown alone and labelled unverified. That
+ * is honest: 0% verified with 0% coverage means "we could not check", which is a
+ * different statement from "you scored zero".
+ */
+export function ReadinessGauge({ report, evidence }) {
+  const claimed = evidence ? evidence.claimed_readiness : report.readiness_score;
+  const verified = evidence ? evidence.verified_readiness : null;
+  const cov = evidence ? evidence.verification_coverage : null;
+  const hasEvidence = verified !== null && cov !== null;
+
+  const shown = hasEvidence ? verified : claimed;
+  const color = readinessColor(shown);
   const SEGMENTS = 24;
-  const lit = Math.round((score / 100) * SEGMENTS);
+  const lit = Math.round((shown / 100) * SEGMENTS);
+  const claimedSeg = Math.round((claimed / 100) * SEGMENTS);
+  const gap = Math.round((claimed - shown) * 10) / 10;
 
   return (
     <section className="panel">
       <h2>Readiness — {report.role}</h2>
       <div className="gauge-row">
         <div>
-          <svg viewBox="0 0 200 120" width="220" role="img" aria-label={`Readiness ${score} out of 100`}>
+          <svg viewBox="0 0 200 120" width="220" role="img"
+               aria-label={hasEvidence
+                 ? `Verified readiness ${verified} of 100, claimed ${claimed}`
+                 : `Claimed readiness ${claimed} of 100, unverified`}>
             {Array.from({ length: SEGMENTS }, (_, i) => {
               const angle = Math.PI * (1 - i / (SEGMENTS - 1));
               const x1 = 100 + Math.cos(angle) * 70;
               const y1 = 105 - Math.sin(angle) * 70;
               const x2 = 100 + Math.cos(angle) * 88;
               const y2 = 105 - Math.sin(angle) * 88;
+              // Segments between verified and claimed are the gap: drawn faintly
+              // in the claimed colour so the shortfall is visible, not implied.
+              const inGap = hasEvidence && i >= lit && i < claimedSeg;
               return (
                 <line key={i} x1={x1} y1={y1} x2={x2} y2={y2}
-                      stroke={i < lit ? color : 'var(--line)'}
+                      stroke={i < lit ? color : inGap ? color : 'var(--line)'}
+                      strokeOpacity={inGap ? 0.28 : 1}
                       strokeWidth="5" strokeLinecap="round" />
               );
             })}
           </svg>
-          <div className="gauge-num" style={{ color }}>{score}<small> / 100</small></div>
-          <div className="gauge-label">demand-weighted market coverage</div>
+          <div className="gauge-num" style={{ color }}>
+            {shown}<small> / 100</small>
+          </div>
+          <div className="gauge-label">
+            {hasEvidence ? 'verified — backed by your own code' : 'claimed — not yet verified'}
+          </div>
         </div>
         <div className="gauge-facts">
+          {hasEvidence ? (
+            <>
+              <div className="fact"><b>{claimed}%</b><span>claimed — what your resume asserts</span></div>
+              <div className="fact"><b>{gap}pp</b><span>the gap: claims your code does not yet back</span></div>
+              <div className="fact"><b>{Math.round(cov * 100)}%</b><span>of your claims we could check at all</span></div>
+            </>
+          ) : (
+            <div className="fact">
+              <span>◈ Add your GitHub username to verify these claims against your
+              own code. Until then this is a self-report.</span>
+            </div>
+          )}
           <div className="fact"><b>{report.total_market_skills}</b><span>skills in the market basket for this role</span></div>
-          <div className="fact"><b>{report.strengths.length}</b><span>market-relevant strengths on your profile</span></div>
           <div className="fact"><b>{report.gaps.filter(g => g.tier === 'critical').length}</b><span>critical gaps blocking the biggest demand mass</span></div>
           {report.notes.map((n, i) => <div className="fact" key={i}><span>◈ {n}</span></div>)}
         </div>
@@ -193,19 +235,15 @@ export function RoadmapTimeline({ roadmap }) {
 
 
 /**
- * The two readiness numbers, side by side. The GAP between them is the product.
+ * Per-claim verdicts, grouped by what the evidence actually says.
  *
- * Claimed is what the resume asserts; verified is what the candidate's own code
- * backs up. Showing only one would be the thing this project exists to stop.
- * Coverage is shown prominently because a low verified score with low coverage
- * means "we could not check", not "you were exaggerating" - and conflating those
- * is what makes naive verification unfair.
+ * The NUMBERS live in ReadinessGauge; this panel is the detail behind them, so it
+ * deliberately repeats none of them. Groups are labelled by finding rather than by
+ * score, and by-design-unverifiable skills say so explicitly - a candidate must
+ * never read "we could not check this" as "this counts against you".
  */
 export function EvidenceSummary({ evidence }) {
-  if (!evidence) return null;
-  const { claimed_readiness: claimed, verified_readiness: verified } = evidence;
-  const cov = evidence.verification_coverage;
-  const gap = Math.round((claimed - verified) * 10) / 10;
+  if (!evidence || !evidence.assessments.length) return null;
 
   const byVerdict = {};
   for (const a of evidence.assessments) {
@@ -218,19 +256,11 @@ export function EvidenceSummary({ evidence }) {
   return (
     <section className="panel">
       <h2>
-        Claimed vs verified
-        <span className="engine-tag">{evidence.repos_analysed} repos read</span>
+        Every claim, checked
+        {evidence.repos_analysed > 0 && (
+          <span className="engine-tag">{evidence.repos_analysed} repos read</span>
+        )}
       </h2>
-
-      <div className="facts">
-        <div className="fact"><b>{claimed}%</b><span>claimed readiness — what your resume asserts</span></div>
-        <div className="fact"><b>{verified}%</b><span>verified readiness — what your code backs up</span></div>
-        <div className="fact"><b>{gap}pp</b><span>the gap: claims your artifacts do not yet support</span></div>
-        <div className="fact">
-          <b>{cov === null || cov === undefined ? 'n/a' : `${Math.round(cov * 100)}%`}</b>
-          <span>of your claims we were able to check at all</span>
-        </div>
-      </div>
 
       {evidence.profile_partial && (
         <div className="gh-status warn">

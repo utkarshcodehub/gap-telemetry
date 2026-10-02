@@ -96,6 +96,10 @@ class EvidenceReportModel(BaseModel):
     #: True when collection was incomplete, so absence is not evidence.
     profile_partial: bool
     repos_analysed: int
+    #: The pre-evidence-model `resume | github` union score, carried for the
+    #: report and the regression tests. NOT shown in the product: a two-number
+    #: story only reads clearly when there are exactly two numbers.
+    legacy_union_readiness: float
 
 
 class AnalyzeResponse(BaseModel):
@@ -105,7 +109,9 @@ class AnalyzeResponse(BaseModel):
     #: Present only when a GitHub username was supplied AND collection succeeded.
     #: The legacy `report` above still ships the pre-evidence-model union score,
     #: so nothing breaks while the two are compared against the baseline.
-    evidence: EvidenceReportModel | None = None
+    #: Always present. claimed_readiness needs no GitHub, so there is always
+    #: a number to show; without evidence, verified is 0 and coverage None.
+    evidence: EvidenceReportModel
 
 
 class RoadmapRequest(BaseModel):
