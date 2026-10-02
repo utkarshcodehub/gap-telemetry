@@ -99,7 +99,7 @@ def step_backend_deps(check: bool) -> None:
     if check:
         say(FAIL, "backend dependencies missing", "run: python bootstrap.py")
         return
-    print("         installing backend requirements (this takes a minute)…")
+    print("         installing backend requirements (this takes a minute)...")
     code, out = run([str(VENV_PY), "-m", "pip", "install", "-q", "-r",
                      "requirements.txt"], BACKEND)
     say(OK if code == 0 else FAIL, "backend dependencies installed",
@@ -125,7 +125,7 @@ def step_env_files(check: bool) -> tuple[dict, dict]:
     for path in (be, fe):
         if path.exists():
             continue
-        example = path.with_suffix(".env.example") if False else path.parent / ".env.example"
+        example = path.parent / ".env.example"
         if check:
             say(FAIL, f"{path.relative_to(ROOT)} missing",
                 f"copy {example.relative_to(ROOT)} and fill it in")
@@ -133,7 +133,7 @@ def step_env_files(check: bool) -> tuple[dict, dict]:
         if example.exists():
             shutil.copyfile(example, path)
             say(WARN, f"created {path.relative_to(ROOT)} from .env.example",
-                "it still needs your real values — see README 'Setting up Supabase Auth'")
+                "it still needs your real values - see README 'Setting up Supabase Auth'")
         else:
             say(FAIL, f"{path.relative_to(ROOT)} missing and no .env.example")
 
@@ -147,8 +147,8 @@ def step_env_files(check: bool) -> tuple[dict, dict]:
             "reads work; seeding market data does not")
     for key in ("VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"):
         say(OK if fev.get(key) else FAIL, f"frontend/.env {key}",
-            "" if fev.get(key) else "not set — login will fail with an unhelpful "
-                                    "error, NOT a startup failure")
+            "" if fev.get(key) else "not set - login will fail with an unhelpful error, "
+                                    "NOT a startup failure")
 
     # The trap worth catching explicitly.
     if bev.get("SUPABASE_URL") and fev.get("VITE_SUPABASE_URL"):
@@ -190,7 +190,7 @@ def step_schema() -> bool:
             "apply backend/supabase/migrations/0004_market_provenance.sql")
     elif "does not exist" in low or "pgrst" in low or "relation" in low:
         say(FAIL, "database schema missing",
-            "apply ALL files in backend/supabase/migrations/ in order — this is "
+            "apply ALL files in backend/supabase/migrations/ in order - this is "
             "the step most often skipped, and everything fails opaquely without it")
     else:
         say(FAIL, "cannot reach the database", out.strip()[-300:])
@@ -251,7 +251,7 @@ def step_frontend(check: bool) -> None:
     if not shutil.which("npm"):
         say(FAIL, "npm not found", "install Node.js, then re-run")
         return
-    print("         running npm install…")
+    print("         running npm install...")
     code, out = run(["npm", "install", "--silent"], FRONTEND)
     say(OK if code == 0 else FAIL, "frontend dependencies installed",
         "" if code == 0 else out[-400:])
