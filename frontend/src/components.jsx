@@ -190,3 +190,104 @@ export function RoadmapTimeline({ roadmap }) {
     </section>
   );
 }
+
+
+/**
+ * The two readiness numbers, side by side. The GAP between them is the product.
+ *
+ * Claimed is what the resume asserts; verified is what the candidate's own code
+ * backs up. Showing only one would be the thing this project exists to stop.
+ * Coverage is shown prominently because a low verified score with low coverage
+ * means "we could not check", not "you were exaggerating" - and conflating those
+ * is what makes naive verification unfair.
+ */
+export function EvidenceSummary({ evidence }) {
+  if (!evidence) return null;
+  const { claimed_readiness: claimed, verified_readiness: verified } = evidence;
+  const cov = evidence.verification_coverage;
+  const gap = Math.round((claimed - verified) * 10) / 10;
+
+  const byVerdict = {};
+  for (const a of evidence.assessments) {
+    (byVerdict[a.verdict] = byVerdict[a.verdict] || []).push(a);
+  }
+  const unver = byVerdict.UNVERIFIABLE || [];
+  const byDesign = unver.filter((a) => a.unverifiable_reason === 'by_design');
+  const notFound = unver.filter((a) => a.unverifiable_reason !== 'by_design');
+
+  return (
+    <section className="panel">
+      <h2>
+        Claimed vs verified
+        <span className="engine-tag">{evidence.repos_analysed} repos read</span>
+      </h2>
+
+      <div className="facts">
+        <div className="fact"><b>{claimed}%</b><span>claimed readiness — what your resume asserts</span></div>
+        <div className="fact"><b>{verified}%</b><span>verified readiness — what your code backs up</span></div>
+        <div className="fact"><b>{gap}pp</b><span>the gap: claims your artifacts do not yet support</span></div>
+        <div className="fact">
+          <b>{cov === null || cov === undefined ? 'n/a' : `${Math.round(cov * 100)}%`}</b>
+          <span>of your claims we were able to check at all</span>
+        </div>
+      </div>
+
+      {evidence.profile_partial && (
+        <div className="gh-status warn">
+          ⚠ Not every repository could be read, so anything missing below may simply
+          be somewhere we did not look.
+        </div>
+      )}
+
+      <VerdictGroup title="Verified by your code" items={byVerdict.VERIFIED} tone="ok" />
+      <VerdictGroup title="Mentioned only in a README" items={byVerdict.WEAK} tone="warn" />
+      <VerdictGroup title="Marked as private or work code" items={byVerdict.ATTESTED} tone="warn" />
+      <VerdictGroup title="Claimed, not found in your public code" items={notFound} tone="warn" />
+      <VerdictGroup
+        title="Cannot be verified by code at all — not a mark against you"
+        items={byDesign}
+        tone="info"
+      />
+
+      {evidence.unclaimed_verified_skills.length > 0 && (
+        <div className="hidden-strengths">
+          <h3>In your code but not on your resume</h3>
+          <p className="muted">
+            Add these — they are already evidenced, and they are not counted in
+            either number above.
+          </p>
+          <div className="chips">
+            {evidence.unclaimed_verified_skills.map((s) => (
+              <span key={s} className="chip">{s}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function VerdictGroup({ title, items, tone }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className={`verdict-group ${tone}`}>
+      <h3>{title} <span className="count">{items.length}</span></h3>
+      <div className="chips">
+        {items
+          .slice()
+          .sort((a, b) => b.confidence - a.confidence)
+          .map((a) => (
+            <span key={a.skill} className="chip" title={
+              `${a.max_tier ? `evidence tier ${a.max_tier}` : 'no artifact evidence'}`
+              + ` · confidence ${a.confidence.toFixed(2)}`
+              + ` · ${a.n_repos} repo(s)`
+              + (a.in_demand_basket ? '' : " · outside this role's market demand")
+            }>
+              {a.skill}
+              {!a.in_demand_basket && <i className="aside"> (not in demand)</i>}
+            </span>
+          ))}
+      </div>
+    </div>
+  );
+}

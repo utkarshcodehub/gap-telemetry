@@ -394,8 +394,10 @@ def test_contradiction_is_suppressed_on_a_partial_profile():
 def test_score_passes_partial_through_to_the_gate():
     ev = [_ev(skill="Docker", counter_evidence=True, authorship_share=0.9,
               channel_coverage=1.0, n_repos=20)]
-    partial = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=True)
-    complete = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=False)
+    partial = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=True,
+                    reveal_contradictions=True)
+    complete = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=False,
+                     reveal_contradictions=True)
     assert partial.assessments[0].verdict is Verdict.UNVERIFIABLE
     assert complete.assessments[0].verdict is Verdict.CONTRADICTED
 
@@ -436,3 +438,39 @@ def test_out_of_basket_claims_do_not_move_either_percentage():
     ])
     assert with_extra.claimed_readiness == without.claimed_readiness
     assert with_extra.verified_readiness == without.verified_readiness
+
+
+# ------------------------- CONTRADICTED is computed but hidden by default
+
+def test_contradicted_is_hidden_by_default_and_reported_as_unverifiable():
+    """The verdict that could wrong an honest candidate ships switched off.
+
+    Until Dataset A validates the rule, a claim the engine WOULD contradict is
+    reported as UNVERIFIABLE -- the honest fallback -- and the suppression is
+    recorded so the rule's hit rate can be measured before anyone sees it.
+    """
+    ev = [_ev(skill="Docker", counter_evidence=True, authorship_share=0.9,
+              channel_coverage=1.0, n_repos=20)]
+
+    hidden = score(MARKET, claimed={"Docker"}, evidence=ev)
+    a = hidden.assessments[0]
+    assert a.verdict is Verdict.UNVERIFIABLE
+    assert a.unverifiable_reason is UnverifiableReason.INSUFFICIENT_ARTIFACTS
+    assert a.suppressed_contradiction is True, (
+        "the computed verdict must be recorded, not discarded -- Dataset A needs it"
+    )
+
+    shown = score(MARKET, claimed={"Docker"}, evidence=ev,
+                  reveal_contradictions=True)
+    b = shown.assessments[0]
+    assert b.verdict is Verdict.CONTRADICTED
+    assert b.suppressed_contradiction is False
+
+
+def test_suppression_is_not_claimed_for_ordinary_unverifiable_claims():
+    r = score(MARKET, claimed={"Docker"}, evidence=[_ev(skill="Docker")])
+    a = r.assessments[0]
+    assert a.verdict is Verdict.UNVERIFIABLE
+    assert a.suppressed_contradiction is False, (
+        "no contradiction was computed, so nothing was suppressed"
+    )

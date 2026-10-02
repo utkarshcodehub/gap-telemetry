@@ -219,19 +219,57 @@ def test_every_allowlist_entry_requires_peer_context():
 
 
 @pytest.mark.parametrize("paths,expected", [
-    ([".github/workflows/ci.yml"], True),
+    # Infrastructure as code -- the practice whose absence is informative.
     (["infra/main.tf"], True),
+    (["terraform/variables.tfvars"], True),
     (["k8s/deployment.yaml"], True),
-    (["Dockerfile"], True),
-    (["vercel.json"], True),
-    (["Procfile"], True),
-    (["nginx.conf"], True),
-    ([".gitlab-ci.yml"], True),
+    (["charts/app/Chart.yaml"], True),
+    (["kustomization.yaml"], True),
+    (["cloudformation/stack.json"], True),
+    (["ansible.cfg"], True),
+    (["pulumi.yaml"], True),
+    # NOT infrastructure as code. Narrowed 2026-10-03: the first version of this
+    # criterion admitted these and was wrong.
+    (["render.yaml"], False),        # PaaS buildpack -- an ALTERNATIVE to Docker
+    (["frontend/vercel.json"], False),
+    (["Procfile"], False),
+    (["netlify.toml"], False),
+    ([".github/workflows/ci.yml"], False),   # running tests implies nothing
+    ([".gitlab-ci.yml"], False),
+    (["Jenkinsfile"], False),
+    (["nginx.conf"], False),
     (["src/app.py", "README.md", "requirements.txt"], False),
     ([], False),
 ])
 def test_infrastructure_context_detection(paths, expected):
     assert has_infrastructure_context(paths) is expected
+
+
+def test_paas_deploy_configs_do_not_license_a_docker_contradiction():
+    """The correction, as a test.
+
+    A render.yaml or Procfile is a buildpack deploy -- the mainstream alternative
+    to containerising. Someone shipping to Render has no reason to write a
+    Dockerfile, so that signal argues AGAINST inferring anything from a missing
+    one. The earlier criterion counted it as supporting evidence, which inverted
+    the inference.
+    """
+    paas = ["render.yaml", "frontend/vercel.json", "Procfile",
+            ".github/workflows/ci.yml"]
+    assert has_infrastructure_context(paas) is False
+    assert absence_is_evidence(
+        "Docker", found=False, repos_with_channel=23, channel_coverage=1.0,
+        has_infra_context=has_infrastructure_context(paas),
+    ) is False
+
+
+def test_real_iac_does_license_a_docker_contradiction():
+    iac = ["infra/main.tf", "k8s/deployment.yaml"]
+    assert has_infrastructure_context(iac) is True
+    assert absence_is_evidence(
+        "Docker", found=False, repos_with_channel=23, channel_coverage=1.0,
+        has_infra_context=has_infrastructure_context(iac),
+    ) is True
 
 
 def test_a_pure_application_developer_is_never_contradicted():

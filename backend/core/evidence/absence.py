@@ -77,30 +77,51 @@ ABSENCE_MIN_REPOS_WITH_CHANNEL = 8
 ABSENCE_MIN_CHANNEL_COVERAGE = 0.75
 
 
-#: Paths showing the candidate publishes infrastructure/ops work at all. The
-#: point is not what they prove individually -- it is that someone who commits
-#: CI pipelines, Terraform or deploy configs is someone whose infrastructure work
-#: is VISIBLE, which is the precondition for reading its absence as meaningful.
+#: INFRASTRUCTURE-AS-CODE ONLY. Narrowed 2026-10-03; the first version of this
+#: set was wrong and worth recording as such.
+#:
+#: It originally admitted CI workflows and PaaS deploy configs (render.yaml,
+#: vercel.json, Procfile) as evidence that a candidate publishes "comparable
+#: infrastructure work". That reasoning does not survive contact with what those
+#: files mean. A PaaS buildpack deploy is the mainstream ALTERNATIVE to
+#: containerising -- someone shipping to Render or Vercel has no reason to write a
+#: Dockerfile, so the presence of render.yaml is an argument AGAINST inferring
+#: anything from a missing Dockerfile, not for it. A CI workflow that runs tests
+#: says nothing about containers or infrastructure either.
+#:
+#: What remains is infrastructure-as-code: declaring infrastructure in the
+#: repository is the practice whose absence is informative, because a candidate who
+#: does it is a candidate whose infrastructure IS public.
+#:
+#: Self-reference is harmless: we only ever test skills that were NOT found, so a
+#: Terraform test cannot be satisfied by the .tf files whose absence it is judging.
 INFRASTRUCTURE_CONTEXT_PATTERNS = (
-    ".github/workflows/", ".gitlab-ci.yml", "jenkinsfile", ".circleci/",
-    ".travis.yml", "azure-pipelines.yml",
-    ".tf", ".tfvars",
-    "chart.yaml", "kustomization.yaml", "k8s/", "kubernetes/", "helm/",
-    "dockerfile", "docker-compose", "compose.yaml", ".dockerignore",
-    "procfile", "vercel.json", "netlify.toml", "render.yaml", "fly.toml",
-    "app.yaml", "cloudbuild.yaml", "nginx.conf", "ansible.cfg",
+    # Terraform / Pulumi
+    ".tf", ".tfvars", "terraform/", "pulumi.yaml",
+    # Kubernetes
+    "kustomization.yaml", "k8s/", "kubernetes/",
+    # Helm
+    "chart.yaml", "helm/",
+    # CloudFormation / SAM
+    "cloudformation", "cloudformation/", "sam-template.yaml",
+    # Configuration management
+    "ansible.cfg", "playbook.yml", "playbooks/",
 )
 
 
 def has_infrastructure_context(tree_paths) -> bool:
-    """Does this profile publish infrastructure work of ANY kind?"""
+    """Does this profile declare infrastructure as code ANYWHERE?
+
+    Deliberately NOT satisfied by CI pipelines or PaaS deploy configs -- see the
+    note on INFRASTRUCTURE_CONTEXT_PATTERNS.
+    """
     for path in tree_paths:
         low = path.lower()
         name = low.rsplit("/", 1)[-1]
         for pat in INFRASTRUCTURE_CONTEXT_PATTERNS:
             if pat.endswith("/") and pat in low:
                 return True
-            if pat.startswith(".") and (name == pat or low.endswith(pat)):
+            if pat.startswith(".") and low.endswith(pat):
                 return True
             if pat in name:
                 return True

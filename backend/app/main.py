@@ -16,7 +16,9 @@ from slowapi.util import get_remote_address
 
 from app.deps import get_current_user
 from app.schemas import (
+    EvidenceReportModel,
     GitHubStatusModel,
+    SkillAssessmentModel,
     AnalyzeResponse,
     GapReportModel,
     MarketSkill,
@@ -30,6 +32,13 @@ from app.settings import get_settings
 from core.auth.verify import AuthUser
 from core.db.store import AnalysesStore, JobStore
 from core.extraction.extractor import SkillExtractor
+from core.evidence.github import (
+    GitHubClient,
+    RequestBudget,
+    collect_profile,
+    evidence_from_profile,
+)
+from core.evidence.model import score as score_evidence
 from core.gap.scorer import score_gap
 from core.market.sources import describe
 from core.github_profile.fetcher import GitHubFetchError, fetch_github_profile
@@ -40,6 +49,11 @@ from core.resume.parser import ResumeParseError, assert_has_text_layer, parse_re
 from core.roadmap.generator import generate_roadmap
 
 settings = get_settings()
+
+#: Where cached GitHub artifact responses live (NFR-3, 24h TTL). Re-analysing an
+#: unchanged profile costs ~0 requests, which matters because the limit is shared
+#: across every analysis.
+EVIDENCE_CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "cache" / "github"
 
 #: The only market this deployment serves. Demand is never aggregated across
 #: markets (see migration 0003); the US LinkedIn corpus is deliberately not
@@ -217,10 +231,68 @@ async def analyze(
         raise HTTPException(404, f"No market data for role '{role}'.")
 
     report = score_gap(role, demand, profile.skill_names, github_skills)
+
+    # The evidence engine runs alongside the legacy score rather than replacing
+    # it, so both can be compared against the recorded baseline before anything
+    # is switched over. It needs the artifact collector, not the old README
+    # keyword fetcher, so it only runs when a username was supplied.
+    evidence_model = None
+    if github_username and gh_status.evidence_used:
+        evidence_model = _evidence_for(github_username.strip(), role, demand,
+                                       profile.skill_names)
+
     return AnalyzeResponse(
         report=GapReportModel.from_report(report),
         resume_skills_found=sorted(profile.skill_names),
         github=GitHubStatusModel(**gh_status.as_dict()),
+        evidence=evidence_model,
+    )
+
+
+def _evidence_for(username: str, role: str, demand: list[dict],
+                  claimed: set[str]) -> EvidenceReportModel | None:
+    """Collect artifact evidence and score it. Returns None if collection fails.
+
+    Deliberately swallows collection failures: the legacy score in the response is
+    still valid, and a GitHub problem must not fail the whole analysis (NFR-4).
+    """
+    try:
+        client = GitHubClient(
+            token=settings.github_token,
+            budget=RequestBudget(limit=150),
+            cache_dir=EVIDENCE_CACHE_DIR,
+        )
+        gh = collect_profile(client, username)
+        evidence = evidence_from_profile(gh)
+        rep = score_evidence(
+            demand, claimed, evidence,
+            profile_partial=gh.partial,
+            # Off until Dataset A validates the rule; a claim that would be
+            # contradicted reports UNVERIFIABLE instead (EVIDENCE_MODEL 8.8).
+            reveal_contradictions=settings.reveal_contradicted_verdict,
+        )
+    except Exception:
+        return None
+
+    return EvidenceReportModel(
+        claimed_readiness=rep.claimed_readiness,
+        verified_readiness=rep.verified_readiness,
+        verification_coverage=rep.verification_coverage,
+        assessments=[
+            SkillAssessmentModel(
+                skill=a.skill, verdict=a.verdict.value, confidence=a.confidence,
+                max_tier=a.max_tier.value if a.max_tier else None,
+                n_repos=a.n_repos,
+                unverifiable_reason=(a.unverifiable_reason.value
+                                     if a.unverifiable_reason else None),
+                in_demand_basket=a.in_demand_basket, demand_pct=a.demand_pct,
+            )
+            for a in rep.assessments
+        ],
+        attested_skills=list(rep.attested_skills),
+        unclaimed_verified_skills=list(rep.unclaimed_verified_skills),
+        profile_partial=gh.partial,
+        repos_analysed=len(gh.repos),
     )
 
 

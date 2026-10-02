@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     # See core/db/safety.py.
     destructive_tests_allow_ref: str | None = None
 
+    # --- Evidence engine ---
+    # CONTRADICTED is the only verdict that could wrong an honest candidate, so it
+    # is computed but NOT shown until Dataset A validates the rule. With this off,
+    # such a claim reports UNVERIFIABLE and the suppression is recorded for
+    # measurement. See docs/EVIDENCE_MODEL.md section 8.8.
+    reveal_contradicted_verdict: bool = False
+
     @property
     def supabase_jwks_url(self) -> str | None:
         if not self.supabase_url:

@@ -332,3 +332,20 @@ button.danger:disabled { opacity: 0.6; cursor: wait; }
   color: var(--muted, #8a93a6);
 }
 .provenance b { color: var(--text, inherit); font-weight: 600; }
+
+/* Claimed-vs-verified panel. The gap between the two numbers is the product, so
+   the groups below them are labelled by what the evidence actually says rather
+   than by a score. */
+.verdict-group { margin-top: 14px; }
+.verdict-group h3 {
+  font-size: 0.82rem; font-weight: 600; margin: 0 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted, #8a93a6);
+}
+.verdict-group h3 .count {
+  font-weight: 400; opacity: 0.7; margin-left: 4px;
+}
+.verdict-group.ok h3 { color: var(--green, #3fb950); }
+.verdict-group.warn h3 { color: var(--amber, #d29922); }
+.verdict-group .chip { cursor: help; }
+.chip .aside { opacity: 0.6; font-style: normal; font-size: 0.85em; }

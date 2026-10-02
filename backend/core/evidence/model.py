@@ -175,6 +175,11 @@ class SkillAssessment:
     #: Set only when verdict is UNVERIFIABLE. Lets a caller separate "nothing
     #: could ever check this" from "we could not check it for you".
     unverifiable_reason: UnverifiableReason | None = None
+    #: True when the engine computed CONTRADICTED but the reveal flag was off, so
+    #: the verdict reported above is UNVERIFIABLE instead. Recorded rather than
+    #: discarded: Dataset A needs to know how often the rule WOULD have fired, to
+    #: measure it before it is ever shown to a candidate.
+    suppressed_contradiction: bool = False
     #: Whether this role's demand basket contains the skill. Verdicts are produced
     #: for every claim; only the readiness PERCENTAGE depends on the basket, so a
     #: claim outside it is assessed but contributes nothing to the score.
@@ -348,6 +353,7 @@ def score(
     min_demand_pct: float = 5.0,
     soft_categories: frozenset[str] = frozenset({"soft_skill"}),
     profile_partial: bool = False,
+    reveal_contradictions: bool = False,
 ) -> EvidenceReport:
     """Produce both readiness numbers plus what sits outside them.
 
@@ -379,6 +385,14 @@ def score(
         ev = by_skill.get(name, SkillEvidence(skill=name))
         v = verdict(ev, coverage_value=cov, authored_repo_count=authored_repos,
                     profile_partial=profile_partial)
+        # The engine always computes CONTRADICTED; revealing it is a separate
+        # decision. Until Dataset A validates the rule, a candidate sees
+        # UNVERIFIABLE -- the honest fallback -- while the suppressed verdict is
+        # still recorded so its frequency can be measured.
+        suppressed = False
+        if v is Verdict.CONTRADICTED and not reveal_contradictions:
+            v = Verdict.UNVERIFIABLE
+            suppressed = True
         conf = confidence(ev)
         demand = demand_by_skill.get(name)
 
@@ -395,6 +409,7 @@ def score(
                                  if v is Verdict.UNVERIFIABLE else None),
             in_demand_basket=demand is not None,
             demand_pct=demand,
+            suppressed_contradiction=suppressed,
         ))
 
     basket_names = {m["canonical"] for m in basket}

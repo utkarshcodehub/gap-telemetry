@@ -413,15 +413,28 @@ honest description of what we know.
 Deliberately strict, and a **candidate for loosening once Dataset A measures**
 how often it suppresses a true contradiction versus prevents a false one.
 
-**Open question for tuning** 🔶. On the first profile the gate *passed* — 5 of 23
-repos carry `.github/workflows/`, `render.yaml`, `vercel.json` or a `Procfile` —
-so Docker remained CONTRADICTED. But `render.yaml`, `vercel.json` and `Procfile`
-are **PaaS buildpack deploys, which are the mainstream alternative to
-containerising**. Someone deploying to Render has no reason to write a Dockerfile,
-so arguably that signal argues *against* the Docker inference rather than for it.
-Narrowing peer context to container-adjacent artifacts only is tempting but risks
-circularity (needing container evidence to judge missing container evidence).
-Left as stated pending Dataset A.
+**Narrowed to infrastructure-as-code only** *(2026-10-03)*. The first version of
+this criterion admitted CI workflows and PaaS deploy configs, **and that was
+wrong.** On the author's profile the gate passed on `.github/workflows/`,
+`render.yaml`, `vercel.json` and a `Procfile`, leaving Docker CONTRADICTED. But a
+PaaS buildpack deploy is the mainstream **alternative** to containerising —
+someone shipping to Render has no reason to write a Dockerfile — so its presence
+argues *against* inferring anything from a missing one. A CI workflow that runs
+tests says nothing about infrastructure either.
+
+Peer context is now Terraform, Kubernetes, Helm, CloudFormation, Pulumi and
+Ansible: declaring infrastructure in the repository is the practice whose absence
+is informative. The same set applies to Terraform's own criterion, and
+self-reference is harmless because only absent skills are ever tested.
+
+Result: the author's `Docker` claim moved CONTRADICTED → **UNVERIFIABLE**.
+
+**Still an open tuning question** 🔶. Infrastructure-as-code only may now be *too*
+strict and suppress genuine contradictions. Dataset A should measure true versus
+false suppression before it is loosened. The narrower set is the safer default
+while the rule is unvalidated — and `CONTRADICTED` is switched off by default
+regardless (`REVEAL_CONTRADICTED_VERDICT`), so the engine records what it would
+have concluded without showing it to anyone.
 
 **What a contradiction means to the candidate.** Not "you lied". It means *your
 public code does not support this claim, so add evidence or mark it private*. The

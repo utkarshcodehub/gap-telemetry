@@ -68,10 +68,44 @@ class GitHubStatusModel(BaseModel):
     severity: str
 
 
+class SkillAssessmentModel(BaseModel):
+    skill: str
+    verdict: str
+    confidence: float
+    max_tier: str | None
+    n_repos: int
+    unverifiable_reason: str | None
+    in_demand_basket: bool
+    demand_pct: float | None
+
+
+class EvidenceReportModel(BaseModel):
+    """The evidence engine's output: two readiness numbers, never one.
+
+    The gap between claimed and verified IS the product. `verification_coverage`
+    is None rather than 0 when nothing was assessable -- "nothing to check" and
+    "checked nothing" are different statements.
+    """
+
+    claimed_readiness: float
+    verified_readiness: float
+    verification_coverage: float | None
+    assessments: list[SkillAssessmentModel]
+    attested_skills: list[str]
+    unclaimed_verified_skills: list[str]
+    #: True when collection was incomplete, so absence is not evidence.
+    profile_partial: bool
+    repos_analysed: int
+
+
 class AnalyzeResponse(BaseModel):
     report: GapReportModel
     resume_skills_found: list[str]
     github: GitHubStatusModel
+    #: Present only when a GitHub username was supplied AND collection succeeded.
+    #: The legacy `report` above still ships the pre-evidence-model union score,
+    #: so nothing breaks while the two are compared against the baseline.
+    evidence: EvidenceReportModel | None = None
 
 
 class RoadmapRequest(BaseModel):

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { analyze, fetchRoles, getRoadmap, saveAnalysis } from './api';
-import { GapBoard, GitHubEvidencePanel, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
+import { EvidenceSummary, GapBoard, GitHubEvidencePanel, ReadinessGauge, RoadmapTimeline, StrengthsPanel } from './components';
 import HistoryPanel from './HistoryPanel';
 import RoleFitPage from './RoleFitPage';
 import { applyTheme, getInitialTheme } from './theme';
@@ -253,6 +253,7 @@ export default function App({ accessToken, userEmail, onSignOut }) {
         <>
           <ReadinessGauge report={result.report} />
           <StrengthsPanel report={result.report} />
+          <EvidenceSummary evidence={result.evidence} />
           <GitHubEvidencePanel githubStatus={githubStatus} report={result.report} />
           <GapBoard gaps={result.report.gaps} />
           <section className="panel">
