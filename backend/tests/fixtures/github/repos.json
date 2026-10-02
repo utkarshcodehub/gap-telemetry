@@ -1,0 +1,26 @@
+[
+ {
+  "name": "api-service",
+  "full_name": "testuser/api-service",
+  "fork": false,
+  "language": "Python",
+  "default_branch": "main",
+  "pushed_at": "2026-09-20T10:00:00Z"
+ },
+ {
+  "name": "dashboard",
+  "full_name": "testuser/dashboard",
+  "fork": false,
+  "language": "TypeScript",
+  "default_branch": "main",
+  "pushed_at": "2024-02-01T10:00:00Z"
+ },
+ {
+  "name": "someone-elses-lib",
+  "full_name": "testuser/someone-elses-lib",
+  "fork": true,
+  "language": "Go",
+  "default_branch": "main",
+  "pushed_at": "2026-09-01T10:00:00Z"
+ }
+]
