@@ -1,0 +1,1295 @@
+{
+  "corpus": {
+    "market": "IN",
+    "sources": [
+      {
+        "postings": 859,
+        "source": "naukri-cc0-2020q4"
+      },
+      {
+        "postings": 575,
+        "source": "jsearch"
+      }
+    ],
+    "total_postings": 1434
+  },
+  "generated_at": "2026-10-02T13:23:27+00:00",
+  "kind": "claim-only baseline (pre-evidence-engine)",
+  "note": "Golden-output baseline, not an accuracy measurement. Records BOTH candidate definitions of claimed_readiness because docs/EVIDENCE_MODEL.md section 8.1 leaves that choice open.",
+  "profiles": [
+    "aligned_backend",
+    "empty",
+    "overclaimed",
+    "resume_only_fresher",
+    "underclaimed"
+  ],
+  "results": {
+    "aligned_backend": [
+      {
+        "basket_size": 31,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 8,
+          "nice_to_have": 9
+        },
+        "n_extras": 0,
+        "n_gaps": 25,
+        "n_hidden_strengths": 0,
+        "n_strengths": 6,
+        "readiness_resume_only": 32.7,
+        "readiness_union": 32.7,
+        "role": "backend developer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 4
+        },
+        "top_gaps": [
+          "Unit Testing",
+          "JavaScript",
+          "HTML",
+          "C",
+          "Object-Oriented Programming",
+          "CI/CD",
+          "CSS",
+          "Microservices",
+          "Angular",
+          "Python"
+        ]
+      },
+      {
+        "basket_size": 33,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 9,
+          "important": 9,
+          "nice_to_have": 10
+        },
+        "n_extras": 1,
+        "n_gaps": 28,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 19.1,
+        "readiness_union": 19.1,
+        "role": "devops engineer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 3
+        },
+        "top_gaps": [
+          "CI/CD",
+          "AWS",
+          "Azure",
+          "Linux",
+          "Python",
+          "Kubernetes",
+          "Terraform",
+          "Computer Networks",
+          "Google Cloud",
+          "Unit Testing"
+        ]
+      },
+      {
+        "basket_size": 42,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 12,
+          "important": 12,
+          "nice_to_have": 12
+        },
+        "n_extras": 0,
+        "n_gaps": 36,
+        "n_hidden_strengths": 0,
+        "n_strengths": 6,
+        "readiness_resume_only": 26.7,
+        "readiness_union": 26.7,
+        "role": "full stack developer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 4
+        },
+        "top_gaps": [
+          "JavaScript",
+          "Unit Testing",
+          "Angular",
+          "CSS",
+          "HTML",
+          "React",
+          "Node.js",
+          "Microservices",
+          "CI/CD",
+          "MySQL"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 6,
+          "important": 6,
+          "nice_to_have": 7
+        },
+        "n_extras": 2,
+        "n_gaps": 19,
+        "n_hidden_strengths": 0,
+        "n_strengths": 4,
+        "readiness_resume_only": 15.7,
+        "readiness_union": 15.7,
+        "role": "frontend developer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 2
+        },
+        "top_gaps": [
+          "JavaScript",
+          "HTML",
+          "CSS",
+          "React",
+          "Angular",
+          "Unit Testing",
+          "Redux",
+          "TypeScript",
+          "CI/CD",
+          "Node.js"
+        ]
+      },
+      {
+        "basket_size": 26,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 1,
+        "n_gaps": 21,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 24.2,
+        "readiness_union": 24.2,
+        "role": "qa engineer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 3
+        },
+        "top_gaps": [
+          "Unit Testing",
+          "Selenium",
+          "CI/CD",
+          "Postman",
+          "Python",
+          "Azure",
+          "JavaScript",
+          "AWS",
+          "Linux",
+          "C"
+        ]
+      },
+      {
+        "basket_size": 29,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 1,
+        "n_gaps": 24,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 18.0,
+        "readiness_union": 18.0,
+        "role": "data engineer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 3
+        },
+        "top_gaps": [
+          "ETL",
+          "Apache Spark",
+          "Big Data",
+          "Python",
+          "Azure",
+          "AWS",
+          "CI/CD",
+          "Apache Kafka",
+          "Unit Testing",
+          "System Design"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 4,
+        "n_gaps": 21,
+        "n_hidden_strengths": 0,
+        "n_strengths": 2,
+        "readiness_resume_only": 16.0,
+        "readiness_union": 16.0,
+        "role": "data analyst",
+        "strengths_by_evidence": {
+          "resume": 1,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Power BI",
+          "Data Analysis",
+          "Tableau",
+          "Excel",
+          "ETL",
+          "Python",
+          "Data Visualization",
+          "Azure",
+          "Unit Testing",
+          "Statistics"
+        ]
+      },
+      {
+        "basket_size": 45,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 13,
+          "important": 13,
+          "nice_to_have": 14
+        },
+        "n_extras": 1,
+        "n_gaps": 40,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 8.9,
+        "readiness_union": 8.9,
+        "role": "ai ml engineer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 3
+        },
+        "top_gaps": [
+          "Python",
+          "Machine Learning",
+          "Deep Learning",
+          "PyTorch",
+          "Computer Vision",
+          "Large Language Models",
+          "TensorFlow",
+          "Statistics",
+          "MLOps",
+          "Data Structures & Algorithms"
+        ]
+      }
+    ],
+    "empty": [
+      {
+        "basket_size": 31,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 10,
+          "important": 10,
+          "nice_to_have": 11
+        },
+        "n_extras": 0,
+        "n_gaps": 31,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "backend developer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "Java",
+          "SQL",
+          "Spring Boot",
+          "Unit Testing",
+          "REST API",
+          "JavaScript",
+          "Git",
+          "HTML",
+          "C",
+          "Object-Oriented Programming"
+        ]
+      },
+      {
+        "basket_size": 33,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 11,
+          "important": 11,
+          "nice_to_have": 11
+        },
+        "n_extras": 0,
+        "n_gaps": 33,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "devops engineer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "CI/CD",
+          "AWS",
+          "Azure",
+          "Linux",
+          "Docker",
+          "Python",
+          "Kubernetes",
+          "Terraform",
+          "Git",
+          "Computer Networks"
+        ]
+      },
+      {
+        "basket_size": 42,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 14,
+          "important": 14,
+          "nice_to_have": 14
+        },
+        "n_extras": 0,
+        "n_gaps": 42,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "full stack developer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "JavaScript",
+          "REST API",
+          "Unit Testing",
+          "SQL",
+          "Java",
+          "Angular",
+          "Git",
+          "CSS",
+          "HTML",
+          "React"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 0,
+        "n_gaps": 23,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "frontend developer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "JavaScript",
+          "HTML",
+          "CSS",
+          "React",
+          "Angular",
+          "REST API",
+          "Git",
+          "Unit Testing",
+          "Redux",
+          "TypeScript"
+        ]
+      },
+      {
+        "basket_size": 26,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 9,
+          "nice_to_have": 9
+        },
+        "n_extras": 0,
+        "n_gaps": 26,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "qa engineer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "Unit Testing",
+          "Selenium",
+          "Java",
+          "CI/CD",
+          "Postman",
+          "SQL",
+          "Git",
+          "Python",
+          "REST API",
+          "Azure"
+        ]
+      },
+      {
+        "basket_size": 29,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 9,
+          "important": 10,
+          "nice_to_have": 10
+        },
+        "n_extras": 0,
+        "n_gaps": 29,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "data engineer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "ETL",
+          "SQL",
+          "Apache Spark",
+          "Big Data",
+          "Python",
+          "Azure",
+          "AWS",
+          "CI/CD",
+          "Apache Kafka",
+          "Unit Testing"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 0,
+        "n_gaps": 23,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "data analyst",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "SQL",
+          "Power BI",
+          "Data Analysis",
+          "Tableau",
+          "Excel",
+          "ETL",
+          "Python",
+          "Data Visualization",
+          "Azure",
+          "Unit Testing"
+        ]
+      },
+      {
+        "basket_size": 45,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 15,
+          "important": 15,
+          "nice_to_have": 15
+        },
+        "n_extras": 0,
+        "n_gaps": 45,
+        "n_hidden_strengths": 0,
+        "n_strengths": 0,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 0.0,
+        "role": "ai ml engineer",
+        "strengths_by_evidence": {},
+        "top_gaps": [
+          "Python",
+          "Machine Learning",
+          "Deep Learning",
+          "PyTorch",
+          "Computer Vision",
+          "Large Language Models",
+          "TensorFlow",
+          "Statistics",
+          "MLOps",
+          "Data Structures & Algorithms"
+        ]
+      }
+    ],
+    "overclaimed": [
+      {
+        "basket_size": 31,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 8,
+          "nice_to_have": 9
+        },
+        "n_extras": 3,
+        "n_gaps": 25,
+        "n_hidden_strengths": 0,
+        "n_strengths": 6,
+        "readiness_resume_only": 13.2,
+        "readiness_union": 13.2,
+        "role": "backend developer",
+        "strengths_by_evidence": {
+          "resume": 5,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Java",
+          "SQL",
+          "Spring Boot",
+          "Unit Testing",
+          "REST API",
+          "JavaScript",
+          "Git",
+          "HTML",
+          "C",
+          "Object-Oriented Programming"
+        ]
+      },
+      {
+        "basket_size": 33,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 9,
+          "nice_to_have": 9
+        },
+        "n_extras": 2,
+        "n_gaps": 26,
+        "n_hidden_strengths": 0,
+        "n_strengths": 7,
+        "readiness_resume_only": 34.4,
+        "readiness_union": 34.4,
+        "role": "devops engineer",
+        "strengths_by_evidence": {
+          "resume": 6,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "CI/CD",
+          "Azure",
+          "Linux",
+          "Git",
+          "Computer Networks",
+          "SQL",
+          "Google Cloud",
+          "Unit Testing",
+          "Java",
+          "System Design"
+        ]
+      },
+      {
+        "basket_size": 42,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 11,
+          "important": 12,
+          "nice_to_have": 12
+        },
+        "n_extras": 2,
+        "n_gaps": 35,
+        "n_hidden_strengths": 0,
+        "n_strengths": 7,
+        "readiness_resume_only": 17.9,
+        "readiness_union": 17.9,
+        "role": "full stack developer",
+        "strengths_by_evidence": {
+          "resume": 6,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "JavaScript",
+          "REST API",
+          "Unit Testing",
+          "SQL",
+          "Java",
+          "Angular",
+          "Git",
+          "CSS",
+          "HTML",
+          "Spring Boot"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 6,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 6,
+        "n_gaps": 20,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 13.0,
+        "readiness_union": 13.0,
+        "role": "frontend developer",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "JavaScript",
+          "HTML",
+          "CSS",
+          "Angular",
+          "REST API",
+          "Git",
+          "Unit Testing",
+          "Redux",
+          "TypeScript",
+          "CI/CD"
+        ]
+      },
+      {
+        "basket_size": 26,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 6,
+        "n_gaps": 23,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 8.4,
+        "readiness_union": 8.4,
+        "role": "qa engineer",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Unit Testing",
+          "Selenium",
+          "Java",
+          "CI/CD",
+          "Postman",
+          "SQL",
+          "Git",
+          "REST API",
+          "Azure",
+          "JavaScript"
+        ]
+      },
+      {
+        "basket_size": 29,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 3,
+        "n_gaps": 23,
+        "n_hidden_strengths": 0,
+        "n_strengths": 6,
+        "readiness_resume_only": 16.7,
+        "readiness_union": 16.7,
+        "role": "data engineer",
+        "strengths_by_evidence": {
+          "resume": 5,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "ETL",
+          "SQL",
+          "Apache Spark",
+          "Big Data",
+          "Azure",
+          "CI/CD",
+          "Apache Kafka",
+          "Unit Testing",
+          "System Design",
+          "Git"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 6,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 6,
+        "n_gaps": 20,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 8.9,
+        "readiness_union": 8.9,
+        "role": "data analyst",
+        "strengths_by_evidence": {
+          "resume": 2,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "SQL",
+          "Power BI",
+          "Data Analysis",
+          "Tableau",
+          "Excel",
+          "ETL",
+          "Data Visualization",
+          "Azure",
+          "Unit Testing",
+          "Statistics"
+        ]
+      },
+      {
+        "basket_size": 45,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 13,
+          "important": 13,
+          "nice_to_have": 13
+        },
+        "n_extras": 3,
+        "n_gaps": 39,
+        "n_hidden_strengths": 0,
+        "n_strengths": 6,
+        "readiness_resume_only": 26.7,
+        "readiness_union": 26.7,
+        "role": "ai ml engineer",
+        "strengths_by_evidence": {
+          "resume": 5,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Deep Learning",
+          "Computer Vision",
+          "Large Language Models",
+          "TensorFlow",
+          "Statistics",
+          "MLOps",
+          "Data Structures & Algorithms",
+          "SQL",
+          "Unit Testing",
+          "Azure"
+        ]
+      }
+    ],
+    "resume_only_fresher": [
+      {
+        "basket_size": 31,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 9,
+          "nice_to_have": 9
+        },
+        "n_extras": 0,
+        "n_gaps": 26,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 22.1,
+        "readiness_union": 22.1,
+        "role": "backend developer",
+        "strengths_by_evidence": {
+          "resume": 5
+        },
+        "top_gaps": [
+          "Java",
+          "Spring Boot",
+          "Unit Testing",
+          "REST API",
+          "JavaScript",
+          "C",
+          "Object-Oriented Programming",
+          "CI/CD",
+          "Microservices",
+          "Angular"
+        ]
+      },
+      {
+        "basket_size": 33,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 10,
+          "important": 10,
+          "nice_to_have": 10
+        },
+        "n_extras": 2,
+        "n_gaps": 30,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 14.6,
+        "readiness_union": 14.6,
+        "role": "devops engineer",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "CI/CD",
+          "AWS",
+          "Azure",
+          "Linux",
+          "Docker",
+          "Kubernetes",
+          "Terraform",
+          "Computer Networks",
+          "Google Cloud",
+          "Unit Testing"
+        ]
+      },
+      {
+        "basket_size": 42,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 12,
+          "important": 12,
+          "nice_to_have": 13
+        },
+        "n_extras": 0,
+        "n_gaps": 37,
+        "n_hidden_strengths": 0,
+        "n_strengths": 5,
+        "readiness_resume_only": 20.5,
+        "readiness_union": 20.5,
+        "role": "full stack developer",
+        "strengths_by_evidence": {
+          "resume": 5
+        },
+        "top_gaps": [
+          "JavaScript",
+          "REST API",
+          "Unit Testing",
+          "Java",
+          "Angular",
+          "React",
+          "Node.js",
+          "Spring Boot",
+          "Docker",
+          "Microservices"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 6,
+          "important": 6,
+          "nice_to_have": 7
+        },
+        "n_extras": 1,
+        "n_gaps": 19,
+        "n_hidden_strengths": 0,
+        "n_strengths": 4,
+        "readiness_resume_only": 31.3,
+        "readiness_union": 31.3,
+        "role": "frontend developer",
+        "strengths_by_evidence": {
+          "resume": 4
+        },
+        "top_gaps": [
+          "JavaScript",
+          "React",
+          "Angular",
+          "REST API",
+          "Unit Testing",
+          "Redux",
+          "TypeScript",
+          "CI/CD",
+          "Java",
+          "Node.js"
+        ]
+      },
+      {
+        "basket_size": 26,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 2,
+        "n_gaps": 23,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 14.6,
+        "readiness_union": 14.6,
+        "role": "qa engineer",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "Unit Testing",
+          "Selenium",
+          "Java",
+          "CI/CD",
+          "Postman",
+          "REST API",
+          "Azure",
+          "JavaScript",
+          "AWS",
+          "Linux"
+        ]
+      },
+      {
+        "basket_size": 29,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 9,
+          "nice_to_have": 9
+        },
+        "n_extras": 2,
+        "n_gaps": 26,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 20.5,
+        "readiness_union": 20.5,
+        "role": "data engineer",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "ETL",
+          "Apache Spark",
+          "Big Data",
+          "Azure",
+          "AWS",
+          "CI/CD",
+          "Apache Kafka",
+          "Unit Testing",
+          "System Design",
+          "Java"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 6,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 2,
+        "n_gaps": 20,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 22.1,
+        "readiness_union": 22.1,
+        "role": "data analyst",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "Power BI",
+          "Data Analysis",
+          "Tableau",
+          "Excel",
+          "ETL",
+          "Data Visualization",
+          "Azure",
+          "Unit Testing",
+          "Statistics",
+          "R"
+        ]
+      },
+      {
+        "basket_size": 45,
+        "delta_union_minus_resume_only": 0.0,
+        "gaps_by_tier": {
+          "critical": 14,
+          "important": 14,
+          "nice_to_have": 14
+        },
+        "n_extras": 2,
+        "n_gaps": 42,
+        "n_hidden_strengths": 0,
+        "n_strengths": 3,
+        "readiness_resume_only": 13.1,
+        "readiness_union": 13.1,
+        "role": "ai ml engineer",
+        "strengths_by_evidence": {
+          "resume": 3
+        },
+        "top_gaps": [
+          "Machine Learning",
+          "Deep Learning",
+          "PyTorch",
+          "Computer Vision",
+          "Large Language Models",
+          "TensorFlow",
+          "Statistics",
+          "MLOps",
+          "Data Structures & Algorithms",
+          "AWS"
+        ]
+      }
+    ],
+    "underclaimed": [
+      {
+        "basket_size": 31,
+        "delta_union_minus_resume_only": 6.9,
+        "gaps_by_tier": {
+          "critical": 9,
+          "important": 9,
+          "nice_to_have": 9
+        },
+        "n_extras": 2,
+        "n_gaps": 27,
+        "n_hidden_strengths": 3,
+        "n_strengths": 4,
+        "readiness_resume_only": 3.4,
+        "readiness_union": 10.3,
+        "role": "backend developer",
+        "strengths_by_evidence": {
+          "github": 3,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Java",
+          "SQL",
+          "Spring Boot",
+          "Unit Testing",
+          "REST API",
+          "JavaScript",
+          "HTML",
+          "C",
+          "Object-Oriented Programming",
+          "CI/CD"
+        ]
+      },
+      {
+        "basket_size": 33,
+        "delta_union_minus_resume_only": 13.4,
+        "gaps_by_tier": {
+          "critical": 9,
+          "important": 9,
+          "nice_to_have": 10
+        },
+        "n_extras": 1,
+        "n_gaps": 28,
+        "n_hidden_strengths": 4,
+        "n_strengths": 5,
+        "readiness_resume_only": 6.7,
+        "readiness_union": 20.1,
+        "role": "devops engineer",
+        "strengths_by_evidence": {
+          "github": 4,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "CI/CD",
+          "AWS",
+          "Azure",
+          "Linux",
+          "Kubernetes",
+          "Terraform",
+          "Computer Networks",
+          "SQL",
+          "Google Cloud",
+          "Unit Testing"
+        ]
+      },
+      {
+        "basket_size": 42,
+        "delta_union_minus_resume_only": 10.1,
+        "gaps_by_tier": {
+          "critical": 12,
+          "important": 12,
+          "nice_to_have": 13
+        },
+        "n_extras": 1,
+        "n_gaps": 37,
+        "n_hidden_strengths": 4,
+        "n_strengths": 5,
+        "readiness_resume_only": 2.0,
+        "readiness_union": 12.1,
+        "role": "full stack developer",
+        "strengths_by_evidence": {
+          "github": 4,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "JavaScript",
+          "REST API",
+          "Unit Testing",
+          "SQL",
+          "Java",
+          "Angular",
+          "CSS",
+          "HTML",
+          "React",
+          "Node.js"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 5.8,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 7,
+          "nice_to_have": 8
+        },
+        "n_extras": 5,
+        "n_gaps": 22,
+        "n_hidden_strengths": 1,
+        "n_strengths": 1,
+        "readiness_resume_only": 0.0,
+        "readiness_union": 5.8,
+        "role": "frontend developer",
+        "strengths_by_evidence": {
+          "github": 1
+        },
+        "top_gaps": [
+          "JavaScript",
+          "HTML",
+          "CSS",
+          "React",
+          "Angular",
+          "REST API",
+          "Unit Testing",
+          "Redux",
+          "TypeScript",
+          "CI/CD"
+        ]
+      },
+      {
+        "basket_size": 26,
+        "delta_union_minus_resume_only": 6.1,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 8,
+          "nice_to_have": 8
+        },
+        "n_extras": 3,
+        "n_gaps": 23,
+        "n_hidden_strengths": 2,
+        "n_strengths": 3,
+        "readiness_resume_only": 4.8,
+        "readiness_union": 10.9,
+        "role": "qa engineer",
+        "strengths_by_evidence": {
+          "github": 2,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Unit Testing",
+          "Selenium",
+          "Java",
+          "CI/CD",
+          "Postman",
+          "SQL",
+          "REST API",
+          "Azure",
+          "JavaScript",
+          "AWS"
+        ]
+      },
+      {
+        "basket_size": 29,
+        "delta_union_minus_resume_only": 5.3,
+        "gaps_by_tier": {
+          "critical": 8,
+          "important": 8,
+          "nice_to_have": 9
+        },
+        "n_extras": 2,
+        "n_gaps": 25,
+        "n_hidden_strengths": 3,
+        "n_strengths": 4,
+        "readiness_resume_only": 7.4,
+        "readiness_union": 12.7,
+        "role": "data engineer",
+        "strengths_by_evidence": {
+          "github": 3,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "ETL",
+          "SQL",
+          "Apache Spark",
+          "Big Data",
+          "Azure",
+          "AWS",
+          "CI/CD",
+          "Apache Kafka",
+          "Unit Testing",
+          "System Design"
+        ]
+      },
+      {
+        "basket_size": 23,
+        "delta_union_minus_resume_only": 1.9,
+        "gaps_by_tier": {
+          "critical": 7,
+          "important": 7,
+          "nice_to_have": 7
+        },
+        "n_extras": 4,
+        "n_gaps": 21,
+        "n_hidden_strengths": 1,
+        "n_strengths": 2,
+        "readiness_resume_only": 6.1,
+        "readiness_union": 8.0,
+        "role": "data analyst",
+        "strengths_by_evidence": {
+          "github": 1,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "SQL",
+          "Power BI",
+          "Data Analysis",
+          "Tableau",
+          "Excel",
+          "ETL",
+          "Data Visualization",
+          "Azure",
+          "Unit Testing",
+          "Statistics"
+        ]
+      },
+      {
+        "basket_size": 45,
+        "delta_union_minus_resume_only": 4.9,
+        "gaps_by_tier": {
+          "critical": 13,
+          "important": 14,
+          "nice_to_have": 14
+        },
+        "n_extras": 2,
+        "n_gaps": 41,
+        "n_hidden_strengths": 3,
+        "n_strengths": 4,
+        "readiness_resume_only": 8.4,
+        "readiness_union": 13.3,
+        "role": "ai ml engineer",
+        "strengths_by_evidence": {
+          "github": 3,
+          "resume+github": 1
+        },
+        "top_gaps": [
+          "Machine Learning",
+          "Deep Learning",
+          "PyTorch",
+          "Computer Vision",
+          "Large Language Models",
+          "TensorFlow",
+          "Statistics",
+          "MLOps",
+          "Data Structures & Algorithms",
+          "SQL"
+        ]
+      }
+    ]
+  },
+  "roles": [
+    "backend developer",
+    "devops engineer",
+    "full stack developer",
+    "frontend developer",
+    "qa engineer",
+    "data engineer",
+    "data analyst",
+    "ai ml engineer"
+  ],
+  "schema": 1
+}

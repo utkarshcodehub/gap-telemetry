@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     # are what permit storing results (see docs/legal/).
     openwebninja_api_key: str | None = None
 
+    # --- Test safety ---
+    # Comma-separated Supabase project refs whose market tables the test suite is
+    # permitted to wipe. Read through Settings rather than os.environ so a value
+    # in backend/.env is actually seen; pydantic-settings loads .env into this
+    # object, it does not export it to the process environment.
+    # See core/db/safety.py.
+    destructive_tests_allow_ref: str | None = None
+
     @property
     def supabase_jwks_url(self) -> str | None:
         if not self.supabase_url:

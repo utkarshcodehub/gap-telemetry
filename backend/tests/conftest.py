@@ -24,12 +24,20 @@ the /analyses isolation tests in test_api_roadmap.py.
 
 import os
 import time
+from pathlib import Path
 
 import jwt as pyjwt
 import pytest
 from supabase import create_client
 
 from app.settings import get_settings
+from core.db.safety import (
+    ALLOW_ENV_VAR,
+    check_truncate_allowed,
+    rebuildable_sources,
+)
+
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 TEST_HS256_SECRET = "test-secret-do-not-use-in-production"
 os.environ.setdefault("AUTH_LOCAL_HS256_SECRET", TEST_HS256_SECRET)
@@ -51,10 +59,30 @@ def _service_client():
 
 
 def _truncate_market_data() -> None:
-    """Delete-all on postings then skills (posting_skills cascades from
-    postings). Safe here because the configured Supabase project is a
-    disposable dev/FYP sandbox, confirmed with the user."""
+    """Delete-all on postings then skills (posting_skills cascades from postings).
+
+    GUARDED. This used to be unconditional, justified by the project being "a
+    disposable dev/FYP sandbox". That justification expired: the database now
+    holds a corpus bought with a capped monthly API quota, and this function
+    destroyed it once already. See core/db/safety.py for the two checks.
+    """
     client = _service_client()
+
+    resp = client.table("postings").select("source").execute()
+    present = {r["source"] for r in (resp.data or [])}
+
+    settings = get_settings()
+    # Settings first (that is where backend/.env lands), then the real process
+    # environment so CI can set it without a file.
+    allow = settings.destructive_tests_allow_ref or os.environ.get(ALLOW_ENV_VAR)
+
+    check_truncate_allowed(
+        supabase_url=settings.supabase_url,
+        allow_env_value=allow,
+        present_sources=present,
+        rebuildable=rebuildable_sources(DATA_DIR),
+    )
+
     client.table("postings").delete().gt("id", 0).execute()
     client.table("skills").delete().gt("id", 0).execute()
 
