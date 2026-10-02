@@ -15,8 +15,10 @@ Two design rules, both deliberate:
 
 1. ORDERED RULES, FIRST MATCH WINS. Order encodes specificity. "Full Stack Java
    Developer" carries both a full-stack and a backend signal, and full stack is
-   the more specific claim, so it is evaluated first. Likewise ML before data-*
-   ("ML Data Engineer" is an ML role) and data engineer before data analyst
+   the more specific claim, so it is evaluated first. Likewise an explicit ML
+   role name before data-* ("ML Engineer - Data Pipelines" is an ML role, while
+   "ML Data Engineer" is a data engineer -- 'ML' there is only a modifier on the
+   head noun), and data engineer before data analyst
    ("Data Engineer: Big Data").
 
 2. AN UNMAPPABLE TITLE IS REJECTED, NEVER GUESSED. `map_title` returns None for
@@ -78,23 +80,35 @@ _EXCLUDE = [
     r"\bproduction (operator|supervisor|in ?charge|manager)\b",
 ]
 
-_RULES: list[tuple[str, list[str]]] = [
+# Matching runs in two tiers, and the split matters.
+#
+# TIER 1 -- the title NAMES the role. An explicit statement always beats an
+# inference from technology, because many technologies are stack-agnostic. Real
+# example that forced this design: "Hiring: Backend Developer - Nestjs &
+# Typescript" was classified FRONTEND, because a single-tier rule list reached
+# `typescript` (a frontend pattern) before `back end`. TypeScript is written on
+# both sides of the stack; "Backend Developer" is not ambiguous at all.
+#
+# TIER 2 -- no role named, so infer from technology. Only consulted when tier 1
+# is silent. Specific server-side frameworks (NestJS, Spring, Django) come
+# before bare stack-agnostic languages, for the same reason.
+_RULES_TIER1: list[tuple[str, list[str]]] = [
+    # Full stack first: its titles also contain backend/frontend words.
     ("full stack developer", [
         r"full[\s\-_]?stack", r"\bmern\b", r"\bmean stack\b",
     ]),
+    # An explicit ML role name wins. Note this does NOT catch 'ML' used as a
+    # mere modifier: "ML Data Engineer" falls through to data engineer below,
+    # because the head noun is 'Data Engineer' and 'ML' only qualifies it.
     ("ai ml engineer", [
         r"machine learning", r"\bml engineer", r"\bai\s*/\s*ml\b",
         r"deep learning", r"data scientist", r"data science", r"\bnlp\b",
         r"computer vision", r"artificial intelligence",
     ]),
-    ("data engineer", [
-        r"data engineer", r"\bbig data\b", r"\betl\b", r"\bhadoop\b",
-        r"\bspark\b", r"data warehous", r"datawarehous", r"\binformatica\b",
-        r"data platform", r"\bpyspark\b", r"\bsnowflake\b", r"\bdatabricks\b",
-    ]),
+    # Data engineer before data analyst: "Data Engineer: Big Data".
+    ("data engineer", [r"data engineer", r"data platform engineer"]),
     ("data analyst", [
-        r"data analyst", r"business intelligence", r"\bpower bi\b",
-        r"\btableau\b", r"\bqlik", r"reporting analyst",
+        r"data analyst", r"business intelligence", r"reporting analyst",
         r"\bbi (developer|analyst|consultant)\b",
     ]),
     ("qa engineer", [
@@ -104,29 +118,63 @@ _RULES: list[tuple[str, list[str]]] = [
     ]),
     ("devops engineer", [
         r"\bdevops\b", r"\bsre\b", r"site reliability", r"cloud engineer",
-        r"infrastructure engineer", r"\bkubernetes\b", r"platform engineer",
-        r"build (and |& )?release engineer", r"\bterraform\b",
+        r"infrastructure engineer", r"platform engineer",
+        r"build (and |& )?release engineer",
+    ]),
+    ("backend developer", [
+        r"back[\s\-_]?end", r"\bapi (developer|engineer)\b",
+        r"server[\s\-_]?side",
     ]),
     ("frontend developer", [
         r"front[\s\-_]?end", r"\bui (developer|engineer)\b", r"\bui\s*/\s*ux\b",
-        r"\breact\b", r"\bangular\b", r"\bvue\.?js\b", r"\bjavascript\b",
-        r"\btypescript\b",
-    ]),
-    # Technology tokens match anywhere in the title, not only adjacent to
-    # "developer" -- "Application Developer: Java & Web Technologies" and
-    # "Application Developer: Microsoft .NET" both failed under adjacency.
-    # \bjava\b does NOT match "javascript": the trailing 's' defeats the \b.
-    ("backend developer", [
-        r"back[\s\-_]?end", r"\bjava\b", r"\.net\b", r"\bdotnet\b", r"\bc#",
-        r"\bpython\b", r"\bphp\b", r"\bnode\.?js\b", r"\bspring\b",
-        r"\bdjango\b", r"\bmicroservices\b", r"\bgolang\b", r"\bc\+\+",
-        r"ruby on rails", r"\bapi (developer|engineer)\b", r"\bmainframe\b",
-        r"\bcobol\b", r"\bscala\b",
+        r"\bweb (developer|designer)\b",
     ]),
 ]
 
+_RULES_TIER2: list[tuple[str, list[str]]] = [
+    ("ai ml engineer", [r"\btensorflow\b", r"\bpytorch\b", r"\bscikit",
+                        r"\bllm[s]?\b", r"\bgenai\b"]),
+    ("data engineer", [
+        r"\bbig data\b", r"\betl\b", r"\bhadoop\b", r"\bspark\b",
+        r"data warehous", r"datawarehous", r"\binformatica\b", r"\bpyspark\b",
+        r"\bsnowflake\b", r"\bdatabricks\b", r"\bairflow\b",
+    ]),
+    ("data analyst", [r"\bpower bi\b", r"\btableau\b", r"\bqlik"]),
+    # Cloud-platform tokens land here, AFTER data engineer, so that
+    # "Azure Data Engineer" is a data engineer and "Azure Admin" is devops.
+    ("devops engineer", [
+        r"\bkubernetes\b", r"\bterraform\b", r"\bansible\b", r"\bazure\b",
+        r"\baws\b", r"\bgcp\b", r"\bjenkins\b", r"\bci\s*/\s*cd\b",
+        r"\bsys ?admin\b", r"\bsystem admin",
+    ]),
+    # Server-side frameworks before bare languages: "Nestjs & Typescript" is a
+    # backend job, and NestJS says so far more precisely than TypeScript does.
+    ("backend developer", [
+        r"\bspring( boot)?\b", r"\bdjango\b", r"\bflask\b", r"\bfastapi\b",
+        r"\bnest\.?js\b", r"\bexpress\.?js\b", r"ruby on rails",
+        r"\bmicroservices\b", r"\bnode\.?js\b", r"\blaravel\b",
+    ]),
+    ("frontend developer", [
+        r"\breact\b", r"\bangular\b", r"\bvue\.?js\b", r"\bnext\.?js\b",
+        r"\bsvelte\b",
+    ]),
+    # Bare languages last -- weakest signal. \bjava\b does NOT match
+    # "javascript": the trailing 's' defeats the word boundary.
+    ("backend developer", [
+        r"\bjava\b", r"\.net\b", r"\bdotnet\b", r"\bc#", r"\bpython\b",
+        r"\bphp\b", r"\bgolang\b", r"\bc\+\+", r"\bmainframe\b", r"\bcobol\b",
+        r"\bscala\b",
+    ]),
+    ("frontend developer", [r"\bjavascript\b", r"\btypescript\b"]),
+]
+
+#: Kept for callers that only need the flat view (tier 1 then tier 2).
+_RULES = _RULES_TIER1 + _RULES_TIER2
+
 _EXCLUDE_C = [re.compile(p) for p in _EXCLUDE]
-_RULES_C = [(role, [re.compile(p) for p in pats]) for role, pats in _RULES]
+_TIER1_C = [(role, [re.compile(p) for p in pats]) for role, pats in _RULES_TIER1]
+_TIER2_C = [(role, [re.compile(p) for p in pats]) for role, pats in _RULES_TIER2]
+_RULES_C = _TIER1_C + _TIER2_C
 
 
 def normalize_title(title: str) -> str:

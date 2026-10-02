@@ -315,6 +315,25 @@ JSON; React does not imply JavaScript; and nothing records *why* those 96.
 Hierarchy falls out of corpus co-occurrence statistics: React implies JavaScript without
 anyone hand-writing that edge.
 
+#### Open findings for lane C — verify before the induction work
+
+**L-1 · `C` reports 21.1% demand for backend developer — suspected false positive.**
+*Found 2026-10-02, on the first real corpus (Naukri CC0, 859 India postings).* In the
+backend-developer demand table, `C` ranks 9th at 21.1%, above `Git` and `CI/CD`. It is
+plausible — Indian service companies do list C — but one posting in five naming C for a
+backend role is high enough to suspect the extractor is matching a bare `C` where it
+shouldn't, for example inside enumerations ("option C", "Plan C", "Annexure C"), degree
+abbreviations, or a mangled `C#`/`C++` whose suffix was lost to the mojibake in this
+corpus. The PhraseMatcher is longest-match-wins, so `C#` and `C++` should win *when the
+suffix survives cleaning* — that is exactly the assumption to test.
+
+Why it matters beyond one skill: a single-character canonical skill is the worst case for a
+closed-vocabulary matcher, and `R` has the same shape. If these are over-matching, they
+inflate their own demand *and* dilute every other skill's percentage, because demand is a
+share of postings. Check `C` and `R` specifically against the raw `extract_text` of the
+postings that matched, before any taxonomy expansion — expanding on top of a precision bug
+would bake it in.
+
 ### 9.3 Architecture
 
 ```
