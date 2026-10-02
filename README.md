@@ -85,6 +85,23 @@ curl -H "Authorization: Bearer $(python3 scripts/mint_dev_token.py)" http://127.
 
 ## Run
 
+### Quickest path: one command
+
+```bash
+python bootstrap.py           # sets up what it can, names what it can't
+python bootstrap.py --check   # verifies only, changes nothing
+```
+
+It creates the venv, installs both dependency sets, copies the `.env` templates,
+probes the database (telling you *which* migration is missing rather than failing
+opaquely), seeds the corpora from local archives, and catches the trap where
+`backend/.env` and `frontend/.env` point at **different** Supabase projects. You
+still have to paste your own Supabase credentials into the two `.env` files — it
+cannot invent those — and it tells you exactly which keys are missing.
+
+The manual steps below are what it automates, kept because knowing them matters
+more than running one command.
+
 ### 1. Backend
 
 ```bash
