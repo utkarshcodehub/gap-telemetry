@@ -5,18 +5,53 @@ import HistoryPanel from './HistoryPanel';
 import RoleFitPage from './RoleFitPage';
 import { applyTheme, getInitialTheme } from './theme';
 
-const FALLBACK_ROLES = [
-  { role: 'Frontend Engineer', postings: 120 },
-  { role: 'Backend Engineer', postings: 104 },
-  { role: 'Data Analyst', postings: 88 },
-  { role: 'Product Manager', postings: 76 },
-  { role: 'Full Stack Engineer', postings: 132 },
-];
+// There is deliberately NO hardcoded fallback role list.
+//
+// There used to be one, seeded as the initial state with invented posting counts
+// ("Product Manager · 76 postings" — not even a role this system can analyse).
+// It rendered before /roles resolved and persisted forever if the backend was
+// unreachable, so the very first thing a user saw was fabricated market data,
+// and picking one of those names 404s on /market/{role}. Every posting count in
+// this UI must come from the database or not be shown at all.
+//
+// `null` means "not loaded yet", `[]` means "loaded, and the market is empty" —
+// two different states that need two different messages.
+
+/**
+ * States which market the demand numbers describe and what data backs them.
+ *
+ * Not decoration. The corpus mixes an archival Q4 2020 sample with a live feed,
+ * and the two differ materially — the 2020 data contains no LLM, RAG or MLOps
+ * postings, because that market did not exist yet. A percentage shown without
+ * its provenance invites the reader to assume it is current. Every string here
+ * comes from the server (see backend/core/market/sources.py); this component
+ * asserts nothing of its own.
+ */
+function MarketProvenance({ market, provenance }) {
+  if (!market || !provenance.length) return null;
+  const total = provenance.reduce((n, p) => n + p.postings, 0);
+  return (
+    <p className="provenance">
+      <b>{market}</b> market · {total.toLocaleString()} postings ·{' '}
+      {provenance.map((p, i) => (
+        <span key={p.source}>
+          {i > 0 && ' + '}
+          {p.postings.toLocaleString()} {p.label}
+          {p.live ? '' : ` (${p.vintage})`}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 export default function App({ accessToken, userEmail, onSignOut }) {
   const [tab, setTab] = useState('telemetry'); // 'telemetry' | 'rolefit'
-  const [roles, setRoles] = useState(FALLBACK_ROLES);
-  const [role, setRole] = useState(FALLBACK_ROLES[0].role);
+  const [roles, setRoles] = useState(null);
+  const [role, setRole] = useState('');
+  // Which market these numbers describe, and what data backs them. Both come
+  // from the server — the UI must never assert a provenance claim of its own.
+  const [market, setMarket] = useState(null);
+  const [provenance, setProvenance] = useState([]);
   const [resumeText, setResumeText] = useState('');
   const [resumeFile, setResumeFile] = useState(null);
   const [github, setGithub] = useState('');
@@ -37,22 +72,31 @@ export default function App({ accessToken, userEmail, onSignOut }) {
 
   useEffect(() => {
     fetchRoles()
-      .then((r) => {
-        const list = Array.isArray(r) && r.length ? r : FALLBACK_ROLES;
+      .then(({ market, roles: list, provenance }) => {
+        setMarket(market);
+        setProvenance(provenance);
         setRoles(list);
-        // Keep the current selection only if it's still a valid option in
-        // the freshly-fetched list — otherwise the <select>'s value points
-        // at a role that no longer has a matching <option> (stale fallback
-        // name vs. real seeded roles), which renders blank and sends a
-        // role /analyze has no market data for.
-        setRole((current) => (list.some((r) => r.role === current) ? current : list[0].role));
+        if (!list.length) {
+          setError(
+            'No market data in the database. Seed it from backend/ with: ' +
+            'python ../scraper/naukri_cc0_ingest.py');
+          return;
+        }
+        // Keep the current selection only if it's still a valid option in the
+        // freshly-fetched list — otherwise the <select>'s value points at a role
+        // with no matching <option>, which renders blank and sends /analyze a
+        // role it has no market data for.
+        setRole((current) => (list.some((x) => x.role === current) ? current : list[0].role));
       })
       .catch(() => {
-        setRoles(FALLBACK_ROLES);
-        setRole((current) => (FALLBACK_ROLES.some((r) => r.role === current) ? current : FALLBACK_ROLES[0].role));
+        // Show no roles rather than invented ones: a disabled picker is honest,
+        // a populated one built from made-up counts is not.
+        setRoles([]);
+        setMarket(null);
+        setProvenance([]);
         setError(
-          'Backend unreachable. Start it with: uvicorn app.main:app (from backend/), ' +
-          'and seed data with the synthetic generator.');
+          'Backend unreachable. Start it from backend/ with: ' +
+          'uvicorn app.main:app --reload');
       });
   }, []);
 
@@ -150,9 +194,22 @@ export default function App({ accessToken, userEmail, onSignOut }) {
         <div className="form-grid">
           <div>
             <label htmlFor="role">Target role</label>
-            <select id="role" value={role || roles[0]?.role || ''} onChange={(e) => setRole(e.target.value)}>
-              {roles.map((r) => <option key={r.role} value={r.role}>{r.role} · {r.postings} postings</option>)}
+            <select
+              id="role"
+              value={role}
+              disabled={!roles || !roles.length}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              {/* Three distinct states, none of them invented data. */}
+              {roles === null && <option value="">Loading roles…</option>}
+              {roles !== null && !roles.length && <option value="">No market data</option>}
+              {(roles || []).map((r) => (
+                <option key={r.role} value={r.role}>
+                  {r.role} · {r.postings} postings
+                </option>
+              ))}
             </select>
+            <MarketProvenance market={market} provenance={provenance} />
           </div>
           <div>
             <label htmlFor="gh">GitHub username (optional)</label>

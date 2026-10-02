@@ -254,6 +254,16 @@ class JobStore:
         resp = self.client.rpc("get_role_counts", {}).execute()
         return [{"role": r["role_query"], "postings": r["postings"]} for r in resp.data]
 
+    def provenance(self, market: str = "IN") -> list[dict]:
+        """Per-source posting counts for a market, heaviest first.
+
+        Lets the UI attribute a demand percentage to the data behind it; the
+        corpus mixes an archival sample with a live feed. See
+        core/market/sources.py for the human labels.
+        """
+        resp = self.client.rpc("get_market_provenance", {"p_market": market}).execute()
+        return [{"source": r["source"], "postings": r["postings"]} for r in resp.data]
+
     def demand(self, role_query: str | None = None) -> list[dict]:
         resp = self.client.rpc("get_demand", {"p_role_query": role_query}).execute()
         return [

@@ -64,6 +64,14 @@ class PageResult:
     unmappable: int          # dropped: title stated no determinable role
     wrong_country: int       # dropped: job_country was not MARKET
 
+    #: The API's own `data` array, verbatim. Archived to disk by the feed so a
+    #: corpus bought with quota can be rebuilt for free. This matters more than
+    #: it looks: the test suite truncates `postings` wholesale, and restoring
+    #: from a database export would be lossy -- only a 500-char excerpt is
+    #: stored, so re-extraction would run on the excerpt and silently find
+    #: fewer skills. Replaying the raw response re-runs the real pipeline.
+    raw_jobs: list[dict]
+
 
 def _clean(value: object) -> str:
     if value is None:
@@ -211,7 +219,18 @@ def fetch_page(
         raw_count=len(jobs),
         unmappable=unmappable,
         wrong_country=wrong_country,
+        raw_jobs=jobs,
     )
+
+
+def records_from_jobs(jobs: list[dict]) -> list[PostingRecord]:
+    """Map an archived `data` array back into records, for a zero-quota restore."""
+    out = []
+    for job in jobs:
+        rec = to_record(job)
+        if rec is not None:
+            out.append(rec)
+    return out
 
 
 def polite_pause() -> None:

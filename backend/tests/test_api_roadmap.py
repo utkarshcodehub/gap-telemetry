@@ -60,6 +60,28 @@ def test_roles(client):
     assert roles == {"ml": 3, "backend": 1}
 
 
+def test_roles_reports_market_and_provenance(client):
+    """The UI must be able to attribute a demand percentage to its source.
+
+    The corpus mixes an archival Q4 2020 sample with a live feed, and a reader
+    who cannot tell them apart cannot judge whether a number describes today's
+    market. These strings come from the server so the UI never asserts a
+    provenance claim of its own.
+    """
+    body = client.get("/roles").json()
+    assert body["market"] == "IN"
+
+    prov = body["provenance"]
+    assert prov, "provenance must never be silently empty when postings exist"
+    assert sum(p["postings"] for p in prov) == 4, "the fixture ingested 4 postings"
+
+    entry = next(p for p in prov if p["source"] == "synthetic")
+    # A stray fixture row must be labelled as fake, not pass as market data.
+    assert "SYNTHETIC" in entry["label"]
+    assert entry["live"] is False
+    assert {"source", "label", "vintage", "live", "postings"} <= set(entry)
+
+
 def test_market_known_role(client):
     r = client.get("/market/ml")
     assert r.status_code == 200

@@ -73,6 +73,28 @@ def test_reingest_repairs_a_posting_left_without_skills(store):
     assert posting_id == store.upsert_postings([rec])[(rec.source, rec.external_id)]
 
 
+def test_duplicate_records_in_one_batch_do_not_abort_the_ingest(store):
+    """Regression: a crash that killed a live fetch mid-run.
+
+    Postgres refuses an upsert whose single statement touches the same conflict
+    target twice ("ON CONFLICT DO UPDATE command cannot affect row a second
+    time"), so one duplicated row aborted the entire chunk. A single JSearch
+    response legitimately returns the same posting on two of its pages, so this
+    is ordinary input and must be collapsed, not rejected.
+    """
+    recs = [
+        make_record("dup-1", "Python and SQL", role="ml"),
+        make_record("dup-1", "Python and SQL", role="ml"),   # same key again
+        make_record("dup-2", "Java and Spring Boot", role="backend"),
+    ]
+    inserted = ingest_postings(recs, store)
+    assert inserted == 2, "the duplicate collapses rather than failing or double-counting"
+    assert store.posting_count() == 2
+
+    # And the surviving row still got its skills linked.
+    assert {d["canonical"] for d in store.demand("ml")} >= {"Python", "SQL"}
+
+
 def test_demand_from_sql(store):
     ingest_postings([make_record("1", "Python, SQL"), make_record("2", "Python and Docker"),
                      make_record("3", "Java only")], store)

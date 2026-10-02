@@ -30,11 +30,17 @@ from core.auth.verify import AuthUser
 from core.db.store import AnalysesStore, JobStore
 from core.extraction.extractor import SkillExtractor
 from core.gap.scorer import score_gap
+from core.market.sources import describe
 from core.github_profile.fetcher import GitHubFetchError, fetch_github_profile
 from core.resume.parser import ResumeParseError, assert_has_text_layer, parse_resume_text
 from core.roadmap.generator import generate_roadmap
 
 settings = get_settings()
+
+#: The only market this deployment serves. Demand is never aggregated across
+#: markets (see migration 0003); the US LinkedIn corpus is deliberately not
+#: ingested and lives on disk for experiments only.
+MARKET = "IN"
 
 app = FastAPI(
     title="Gap Telemetry",
@@ -95,9 +101,24 @@ def health():
 
 @app.get("/roles")
 def roles():
+    """Roles available for analysis, plus what data backs them.
+
+    The provenance block exists so the UI can attribute a demand percentage to
+    its source. The corpus mixes an archival Q4 2020 sample with a live feed, and
+    a reader who cannot tell them apart cannot judge whether a number describes
+    today's market. Returned here rather than from a second endpoint because the
+    frontend already calls this on mount.
+    """
     store = get_store()
     try:
-        return {"roles": store.roles()}
+        counts = store.provenance(MARKET)
+        return {
+            "market": MARKET,
+            "roles": store.roles(),
+            "provenance": [
+                {**describe(c["source"]), "postings": c["postings"]} for c in counts
+            ],
+        }
     finally:
         store.close()
 

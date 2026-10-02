@@ -33,7 +33,10 @@ Usage, from backend/ (so pydantic-settings resolves .env):
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
@@ -46,6 +49,7 @@ from core.market.jsearch import (  # noqa: E402
     JSearchError,
     fetch_page,
     polite_pause,
+    records_from_jobs,
     request_cost,
 )
 from core.market.quota import (  # noqa: E402
@@ -56,9 +60,15 @@ from core.market.quota import (  # noqa: E402
 from core.taxonomy.roles import CANONICAL_ROLES, MIN_POSTINGS_PER_ROLE  # noqa: E402
 from ingest import ingest_postings  # noqa: E402
 
-LEDGER_PATH = (
-    Path(__file__).resolve().parents[1] / "backend" / "data" / "jsearch_quota.json"
-)
+_DATA = Path(__file__).resolve().parents[1] / "backend" / "data"
+LEDGER_PATH = _DATA / "jsearch_quota.json"
+
+#: Every raw API response is archived here, because this corpus is bought with a
+#: capped monthly quota while the test suite truncates `postings` wholesale. A
+#: database export would be lossy (only a 500-char excerpt is stored, so
+#: re-extraction would find fewer skills), but replaying the raw response re-runs
+#: the real pipeline for free. `--restore` does exactly that.
+ARCHIVE_DIR = _DATA / "raw" / "jsearch"
 
 #: Total usage ceiling for the period. The provider allows 200; this keeps at
 #: least 100 in reserve at all times, so the feed can never consume the whole
@@ -142,6 +152,39 @@ def existing_ids(store: JobStore) -> set[str]:
         offset += page_size
 
 
+def _archive(jobs: list[dict], role: str, phrasing: str) -> None:
+    """Persist a raw response so the quota spent on it is never lost again."""
+    if not jobs:
+        return
+    ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    slug = re.sub(r"[^a-z0-9]+", "-", phrasing.lower()).strip("-")
+    path = ARCHIVE_DIR / f"{stamp}-{slug}.json"
+    path.write_text(json.dumps(
+        {"fetched_at": stamp, "role": role, "query": phrasing, "data": jobs},
+        indent=1,
+    ), encoding="utf-8")
+
+
+def cmd_restore(store: JobStore) -> None:
+    """Rebuild the corpus from archived responses. Spends ZERO quota."""
+    files = sorted(ARCHIVE_DIR.glob("*.json")) if ARCHIVE_DIR.exists() else []
+    if not files:
+        print(f"no archives in {ARCHIVE_DIR} -- nothing to restore.")
+        return
+    records, seen = [], set()
+    for f in files:
+        payload = json.loads(f.read_text(encoding="utf-8"))
+        for rec in records_from_jobs(payload.get("data") or []):
+            if rec.external_id in seen:
+                continue
+            seen.add(rec.external_id)
+            records.append(rec)
+    print(f"{len(files)} archived responses -> {len(records)} distinct postings")
+    inserted = ingest_postings(records, store)
+    print(f"ingested {inserted} new. DB total: {store.posting_count()}")
+
+
 def cmd_plan(ledger: QuotaLedger, store: JobStore, num_pages: int) -> None:
     s = ledger.summary()
     cost = request_cost(num_pages)
@@ -222,6 +265,7 @@ def cmd_run(ledger: QuotaLedger, store: JobStore, api_key: str,
             stats["dupes"] += len(res.records) - len(fresh)
             held.update(r.external_id for r in fresh)
 
+            _archive(res.raw_jobs, role, phrasing)
             inserted = ingest_postings(fresh, store) if fresh else 0
             stats["new"] += inserted
             short = shortfalls(store)   # cross-fill means every role can move
@@ -257,6 +301,8 @@ def main() -> None:
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--plan", action="store_true", help="status only; spends nothing")
     mode.add_argument("--run", action="store_true", help="fetch and ingest")
+    mode.add_argument("--restore", action="store_true",
+                     help="re-ingest from archived raw responses; spends 0 quota")
     ap.add_argument("--max-requests", type=int, default=0,
                     help="session budget in REQUESTS (not calls); required for --run")
     ap.add_argument("--num-pages", type=int, default=DEFAULT_NUM_PAGES)
@@ -273,6 +319,9 @@ def main() -> None:
     try:
         if args.plan:
             cmd_plan(ledger, store, args.num_pages)
+            return
+        if args.restore:
+            cmd_restore(store)
             return
         if not settings.openwebninja_api_key:
             raise SystemExit("OPENWEBNINJA_API_KEY not set in backend/.env")

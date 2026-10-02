@@ -26,9 +26,16 @@ function authHeader(accessToken) {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
+// Returns the whole payload, not just the roles array: the caller needs the
+// market and the per-source provenance to attribute demand percentages honestly,
+// and /roles is already fetched on mount so this avoids a second round trip.
 export async function fetchRoles() {
   const data = await jsonOrThrow(await fetch('/api/roles'));
-  return data.roles;
+  return {
+    market: data.market || null,
+    roles: Array.isArray(data.roles) ? data.roles : [],
+    provenance: Array.isArray(data.provenance) ? data.provenance : [],
+  };
 }
 
 export async function analyze({ role, resumeText, resumeFile, githubUsername, accessToken }) {

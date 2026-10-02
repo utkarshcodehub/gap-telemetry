@@ -153,6 +153,26 @@ every run — inflating counts, distorting every demand percentage, and preventi
 already-held early-stop from ever firing. `job_uid` is the stable 24-char Google docid.
 Asserted by `tests/test_jsearch_mapping.py`.
 
+### Raw responses are archived — the corpus is rebuildable for free
+
+Every response the feed receives is written to `backend/data/raw/jsearch/*.json`
+(gitignored, ~4 MB for 16 responses), and `jsearch_feed.py --restore` replays them
+through the real pipeline:
+
+```bash
+cd backend && python ../scraper/jsearch_feed.py --restore   # spends 0 quota
+```
+
+This exists because of a specific trap. The test suite truncates `postings`
+wholesale, so a suite run destroys a corpus that cost real API quota — and quota
+cannot be topped up until the period resets. Restoring from a *database* export
+would not do: only a 500-char excerpt is stored, so re-extraction would run on the
+excerpt and silently find fewer skills. Replaying the raw response re-runs
+extraction against the full description.
+
+Verified end to end: a full suite run wiped 1,434 postings, and both corpora
+rebuilt from disk to exactly 859 + 575 with no API calls.
+
 ### Attribution and limits
 
 The provider's terms grant "a non-exclusive, non-transferable license to use,

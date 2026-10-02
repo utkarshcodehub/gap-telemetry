@@ -49,6 +49,18 @@ def ingest_postings(
     if not records:
         return 0
 
+    # Collapse duplicates on the table's real uniqueness key BEFORE batching.
+    # Postgres rejects an upsert whose statement touches the same conflict target
+    # twice ("ON CONFLICT DO UPDATE command cannot affect row a second time"), so
+    # one duplicated row aborts the whole chunk. A single JSearch response can
+    # legitimately return the same posting on two of its pages, so this is a
+    # normal input, not a caller error -- it belongs here rather than in each
+    # loader.
+    deduped: dict[tuple[str, str], PostingRecord] = {}
+    for rec in records:
+        deduped.setdefault((rec.source, rec.external_id), rec)
+    records = list(deduped.values())
+
     # 1. Extract everything first -- pure CPU, no network.
     extracted: list[list] = [
         list(extractor.extract(rec.text_for_extraction)) for rec in records
