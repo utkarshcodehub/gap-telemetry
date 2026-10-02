@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     # --- GitHub (optional — raises the unauthenticated 60 req/hr limit) ---
     github_token: str | None = None
 
+    # --- Market data feed (OpenWeb Ninja / JSearch) ---
+    # Only the offline ingest scripts read this; no API route does. Subscribe
+    # directly at openwebninja.com, not via RapidAPI — the provider's own terms
+    # are what permit storing results (see docs/legal/).
+    openwebninja_api_key: str | None = None
+
     @property
     def supabase_jwks_url(self) -> str | None:
         if not self.supabase_url:
