@@ -71,7 +71,7 @@ def test_role_fit_without_github(client, auth_headers):
     assert body["verdict"]
     assert body["explanation"]
     # No username supplied -> enrichment is skipped, not attempted.
-    assert body["github_status"] == "not_requested"
+    assert body["github"]["state"] == "not_requested"
     assert body["github_skills_used"] == []
 
 
@@ -96,7 +96,9 @@ def test_github_skills_are_merged_into_the_match(client, auth_headers, monkeypat
     monkeypatch.setattr(main, "fetch_github_profile", fake_fetch)
     after = _post(client, auth_headers, github_username="octocat").json()
 
-    assert after["github_status"] == "ok (7 repos)"
+    assert after["github"]["state"] == "ok"
+    assert after["github"]["repos_analysed"] == 7
+    assert after["github"]["evidence_used"] is True
     assert after["github_skills_used"] == ["MERN Stack", "React Native"]
     assert after["match_pct"] > before["match_pct"]
     # resume_skills_found reports the resume alone — GitHub skills are
@@ -114,4 +116,7 @@ def test_github_failure_degrades_without_failing_the_request(
     r = _post(client, auth_headers, github_username="octocat")
 
     assert r.status_code == 200
-    assert r.json()["github_status"] == "skipped: rate limited"
+    gh = r.json()["github"]
+    assert gh["state"] == "rate_limited", "classified, not a bare 'skipped'"
+    assert gh["evidence_used"] is False
+    assert "GITHUB_TOKEN" in gh["message"], "must say how to fix it"

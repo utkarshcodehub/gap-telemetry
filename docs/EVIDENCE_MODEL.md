@@ -59,8 +59,25 @@ One verdict per **claimed** skill. The unit of judgement is a claim, not a skill
 | `VERIFIED` | Supported at **E2 or above** |
 | `WEAK` | Supported only at **E1** |
 | `ATTESTED` | Candidate declares private/work evidence (**EA**); always labelled as not independently checked |
-| `UNVERIFIABLE` | Insufficient artifacts to check. **Never a penalty.** |
+| `UNVERIFIABLE` | Could not be checked. **Never a penalty.** Carries a `reason`: see below |
 | `CONTRADICTED` | Claimed, *and* positive counter-evidence exists — see §4 |
+
+### `UNVERIFIABLE` carries a reason *(decided 2026-10-02)*
+
+Five verdicts stay five. But one of them was carrying two completely different
+meanings, so it now reports which:
+
+| `unverifiable_reason` | Meaning |
+|---|---|
+| `by_design` | **No quantity of evidence could ever verify this** — "System Design", "REST API", "Microservices", soft skills (EC-9). Not a failure, and must never render as one. |
+| `insufficient_artifacts` | **This candidate's public surface was too thin to check it** — the empty-GitHub majority case (EC-1). A statement about available evidence, not about the claim. |
+
+*Reasoning.* Conflating them tells a student their computer-science fundamentals
+are "unproven" when the system was structurally incapable of looking. A skill in
+the `by_design` group is excluded from coverage (§8.5) and can never be
+`CONTRADICTED`, so reporting it beside genuinely-unchecked claims also misstates
+what the system did. A reason field was preferred over a sixth verdict because the
+*verdict* is the same in both cases — unverified — while the *explanation* differs.
 
 ### The distinction that matters
 
@@ -189,7 +206,7 @@ Two categories are reported **separately**, deliberately outside both:
 
 | Metric | Definition |
 |---|---|
-| `verification_coverage` | `checkable_claims / assessable_claims` (decided — §8.5) |
+| `verification_coverage` | mean per-claim channel coverage (revised — §8.5) |
 
 Shown **prominently**, so a low verified score is never misread as dishonesty when
 it is really absence of public code. A candidate with no GitHub should see *"we
@@ -284,44 +301,49 @@ evaluation (Dataset C / E4) would have a trivial exploit: attest everything.
 Excluding it keeps "verified" meaning independently checked, while still
 representing private work honestly — which is the point of EA existing (EC-3).
 
-### 8.5 Coverage — proposed definition 🔶 *(proposed here, not owner-decided)*
+### 8.5 Coverage — REVISED 2026-10-02 🔶 *flag for mentor review*
 
 ```
-verification_coverage = checkable_claims / assessable_claims        # None if 0
+verification_coverage = mean over assessable claims of channel_coverage(claim)
+
+channel_coverage(claim) = in-scope repos where a channel capable of proving the
+                          claim was successfully retrieved
+                          ----------------------------------------------------
+                          in-scope repos
 ```
 
 | Term | Definition |
 |---|---|
-| `assessable_claims` | Claimed skills that are **(a)** artifact-evidenceable by category — excluding `NOT-VERIFIABLE-BY-DESIGN` (soft skills, process/methodology, EC-9) — **and (b)** not attested as private (EA) |
-| `checkable_claims` | Those `assessable_claims` for which **at least one evidence channel capable of carrying that skill's signal was successfully retrieved** (file tree, dependency manifest, language statistics, commit authorship) |
+| `assessable claims` | Claimed skills that are **(a)** artifact-evidenceable by category — excluding `by_design` skills (EC-9) — **and (b)** not attested as private (EA) |
+| `in-scope repos` | The non-fork repositories the analysis set out to read |
+| *channel capable of proving the claim* | From the skill→channel map: file tree, dependency manifest, or language statistics |
 
-**Why this is not circular.** Neither side of the ratio looks at a verdict.
-Checkability is a property of *what we managed to fetch*, settled before any
-judgement about presence or absence. The earlier candidate definition — "claims
-that resolved to any verdict other than `UNVERIFIABLE`" — was circular precisely
-because `CONTRADICTED` counted toward coverage, so a pile of contradictions raised
-coverage, which then licensed `CONTRADICTED` to fire. Contradictions justified
-themselves.
+**Why it was revised.** The first definition counted a claim as "checkable" if
+**any** repo had yielded a usable channel. On the first real profile that produced
+**`coverage = 100%`** while nine of twelve repo fetches had actually failed to a
+rate limit. As the gate standing between a thin analysis and a false
+`CONTRADICTED`, a value that reads 1.0 whenever a single repo succeeds protects
+nothing at all. Averaging per-repo retrieval instead makes incomplete collection
+*look* incomplete, which is the only thing the gate needs from it.
 
-**Why not-verifiable-by-design skills are excluded.** A candidate must not read as
-low-coverage because we cannot check "Communication". It was never checkable by
-any quantity of evidence. Leaving it in would make coverage partly a function of
-how many soft skills someone happened to list, which is noise.
+**Still non-circular.** No term consults a verdict. Retrieval is settled before any
+judgement about presence or absence, so coverage cannot be raised by the
+contradictions it licenses.
 
-**Why attested claims are excluded from the denominator too.** Two reasons. An
-attested claim removes itself by design from the question coverage asks — *of the
-claims we could have checked, how many did we?* And if attested claims counted in
-the denominator, attesting many skills would **deflate** coverage, which would
-suppress `CONTRADICTED` across the board (§4). That is a gaming vector, and the
-same one §8.4 guards against from the other side.
+**Attested claims remain excluded from the mean.** They would otherwise drag it
+down, suppressing `CONTRADICTED` across the board — the same gaming vector §8.4
+guards from the other side.
 
-**Intended degradation.** When the GitHub API is rate-limited and channels are not
-retrieved, coverage falls, which suppresses `CONTRADICTED`. That is the correct
-failure direction: an infrastructure problem must never produce an accusation.
+### `CONTRADICTED` additionally requires a complete profile *(decided)*
 
-**Implementation note.** This needs a per-skill map from canonical skill to the
-evidence channels that could carry it. That map does not exist yet; it arrives
-with the evidence engine, and until then coverage is reported as `None`.
+A partial profile — repo cap reached, rate limit hit, request budget exhausted —
+now blocks `CONTRADICTED` outright, independently of coverage.
+
+*Reasoning.* Coverage measures how much of each *repo set* we read; it does not
+capture that we deliberately stopped at 12 of 23 repositories. The skill may be in
+a repo nobody opened, so absence is a fact about our collection, not about the
+candidate. These are two different incompletenesses and only one of them was
+previously gated.
 
 ### 8.6 Unclaimed-verified skills sit outside both numbers ✅
 

@@ -66,7 +66,10 @@ export default function App({ accessToken, userEmail, onSignOut }) {
   const [theme, setTheme] = useState(getInitialTheme());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
-  const [githubStatus, setGithubStatus] = useState('');
+  // Structured, not a string: severity and evidence_used come from the
+  // server. Inferring them from a prefix is how an expired token went
+  // unnoticed while every analysis quietly fell back to resume-only.
+  const [githubStatus, setGithubStatus] = useState(null);
 
   useEffect(() => { applyTheme(theme); }, [theme]);
 
@@ -101,14 +104,14 @@ export default function App({ accessToken, userEmail, onSignOut }) {
   }, []);
 
   async function onAnalyze() {
-    setBusy(true); setError(''); setResult(null); setRoadmap(null); setSaveStatus(''); setGithubStatus('');
+    setBusy(true); setError(''); setResult(null); setRoadmap(null); setSaveStatus(''); setGithubStatus(null);
     try {
       const data = await analyze({
         role, resumeText: resumeText.trim() || null, resumeFile,
         githubUsername: github.trim() || null, accessToken,
       });
       setResult(data);
-      setGithubStatus(data.github_status || '');
+      setGithubStatus(data.github || null);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -214,9 +217,11 @@ export default function App({ accessToken, userEmail, onSignOut }) {
           <div>
             <label htmlFor="gh">GitHub username (optional)</label>
             <input id="gh" type="text" placeholder="e.g. utkarshcodehub" value={github} onChange={(e) => setGithub(e.target.value)} />
-            {githubStatus && githubStatus !== 'not_requested' && (
-              <div className={`gh-status ${githubStatus.startsWith('ok') ? 'ok' : 'warn'}`}>
-                {githubStatus.startsWith('ok') ? `✓ GitHub: ${githubStatus} — see "GitHub evidence" below` : `⚠ GitHub: ${githubStatus}`}
+            {githubStatus && githubStatus.state !== 'not_requested' && (
+              <div className={`gh-status ${githubStatus.severity === 'info' ? 'ok' : 'warn'}`}>
+                {githubStatus.evidence_used
+                  ? `✓ GitHub: ${githubStatus.message} — see "GitHub evidence" below`
+                  : `⚠ No GitHub evidence was used. ${githubStatus.message}`}
               </div>
             )}
           </div>

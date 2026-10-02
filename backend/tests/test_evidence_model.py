@@ -12,6 +12,7 @@ from __future__ import annotations
 import pytest
 
 from core.evidence.model import (
+    UnverifiableReason,
     AUTHOR_BONUS_CAP,
     CONTRADICTION_MIN_AUTHORED_REPOS,
     REPO_BONUS_CAP,
@@ -123,18 +124,38 @@ def test_coverage_counts_retrieved_channels_not_verdicts():
     fetched, never on what we concluded -- otherwise contradictions would raise
     coverage, and coverage licenses contradictions."""
     ev = [
-        SkillEvidence("Python", channels_retrieved=True),
-        SkillEvidence("Docker", channels_retrieved=True),
-        SkillEvidence("React", channels_retrieved=False),
+        SkillEvidence("Python", channel_coverage=1.0),
+        SkillEvidence("Docker", channel_coverage=1.0),
+        SkillEvidence("React", channel_coverage=0.0),
     ]
     assert coverage(ev, claimed={"Python", "Docker", "React"}) == pytest.approx(2 / 3)
+
+
+def test_coverage_is_graded_not_binary():
+    """The revision (section 8.5). The old definition called a claim checkable if
+    ANY repo yielded a channel, so coverage read 100% even when nine of ten
+    fetches had failed. As the gate guarding against false contradictions, an
+    always-1.0 value guards nothing."""
+    ev = [SkillEvidence("Python", channel_coverage=0.1),
+          SkillEvidence("Docker", channel_coverage=0.3)]
+    assert coverage(ev, claimed={"Python", "Docker"}) == pytest.approx(0.2)
+
+
+def test_partial_collection_shows_up_as_partial_coverage():
+    """One repo read out of ten must not look like a complete assessment."""
+    ev = [SkillEvidence("Python", channel_coverage=1 / 10)]
+    cov = coverage(ev, claimed={"Python"})
+    from core.evidence.model import CONTRADICTION_MIN_COVERAGE
+    assert cov < CONTRADICTION_MIN_COVERAGE, (
+        "coverage this thin must sit below the contradiction gate"
+    )
 
 
 def test_not_verifiable_by_design_skills_leave_the_denominator():
     """A candidate must not read as low-coverage because we cannot check
     'Communication'. It was never checkable by any amount of evidence."""
     ev = [
-        SkillEvidence("Python", channels_retrieved=True),
+        SkillEvidence("Python", channel_coverage=1.0),
         SkillEvidence("Communication", verifiable_by_design=False),
     ]
     assert coverage(ev, claimed={"Python", "Communication"}) == 1.0
@@ -147,7 +168,7 @@ def test_attesting_many_skills_cannot_deflate_coverage():
     would drive coverage down, which would suppress CONTRADICTED on everything
     else. Excluding them from BOTH sides removes the lever.
     """
-    ev = [SkillEvidence("Python", channels_retrieved=True)] + [
+    ev = [SkillEvidence("Python", channel_coverage=1.0)] + [
         SkillEvidence(f"Private{i}", attested=True) for i in range(20)
     ]
     claimed = {"Python"} | {f"Private{i}" for i in range(20)}
@@ -155,7 +176,7 @@ def test_attesting_many_skills_cannot_deflate_coverage():
 
 
 def test_unclaimed_skills_are_not_in_coverage():
-    ev = [SkillEvidence("Docker", channels_retrieved=True)]
+    ev = [SkillEvidence("Docker", channel_coverage=1.0)]
     assert coverage(ev, claimed=set()) is None
 
 
@@ -253,8 +274,8 @@ def test_claimed_readiness_counts_only_resume_claims():
 def test_verified_readiness_is_confidence_weighted_and_below_claimed():
     r = score(MARKET, claimed={"Python", "Docker"}, evidence=[
         _ev(skill="Python", max_tier=Tier.DECLARED, n_repos=3,
-            recency_months=1.0, authorship_share=0.9, channels_retrieved=True),
-        _ev(skill="Docker", channels_retrieved=True),   # claimed, no evidence
+            recency_months=1.0, authorship_share=0.9, channel_coverage=1.0),
+        _ev(skill="Docker", channel_coverage=1.0),   # claimed, no evidence
     ])
     assert r.claimed_readiness == 80.0
     assert 0 < r.verified_readiness < r.claimed_readiness
@@ -294,7 +315,7 @@ def test_attesting_everything_cannot_inflate_verified_readiness():
 def test_unclaimed_verified_skills_sit_outside_both_numbers():
     """Section 8.6: reported as advice, never folded into a score."""
     r = score(MARKET, claimed={"Python"}, evidence=[
-        _ev(skill="Python", max_tier=Tier.DECLARED, channels_retrieved=True),
+        _ev(skill="Python", max_tier=Tier.DECLARED, channel_coverage=1.0),
         _ev(skill="Docker", max_tier=Tier.DECLARED, n_repos=3),  # never claimed
     ])
     assert r.unclaimed_verified_skills == ("Docker",)
@@ -317,3 +338,59 @@ def test_empty_market_does_not_divide_by_zero():
     r = score([], claimed={"Python"}, evidence=[])
     assert isinstance(r, EvidenceReport)
     assert r.claimed_readiness == 0.0 and r.verified_readiness == 0.0
+
+
+# ------------------------------------- UNVERIFIABLE reason (five verdicts kept)
+
+def test_by_design_and_insufficient_artifacts_are_distinguished():
+    """One verdict was carrying two different meanings.
+
+    "System Design" can never be verified by any amount of evidence (EC-9), while
+    "Docker" simply was not found in this candidate's public code (EC-1).
+    Reporting both as a bare UNVERIFIABLE tells a student their fundamentals are
+    unproven when the system was never able to look.
+    """
+    r = score(MARKET, claimed={"Python"}, evidence=[
+        _ev(skill="Python", verifiable_by_design=False),
+    ])
+    a = next(a for a in r.assessments if a.skill == "Python")
+    assert a.verdict is Verdict.UNVERIFIABLE
+    assert a.unverifiable_reason is UnverifiableReason.BY_DESIGN
+
+    r2 = score(MARKET, claimed={"Python"}, evidence=[
+        _ev(skill="Python", channel_coverage=1.0),
+    ])
+    a2 = next(a for a in r2.assessments if a.skill == "Python")
+    assert a2.verdict is Verdict.UNVERIFIABLE
+    assert a2.unverifiable_reason is UnverifiableReason.INSUFFICIENT_ARTIFACTS
+
+
+def test_reason_is_only_set_for_unverifiable():
+    r = score(MARKET, claimed={"Python"},
+              evidence=[_ev(skill="Python", max_tier=Tier.DECLARED)])
+    a = next(a for a in r.assessments if a.skill == "Python")
+    assert a.verdict is Verdict.VERIFIED
+    assert a.unverifiable_reason is None
+
+
+# --------------------------------- CONTRADICTED requires a complete profile
+
+def test_contradiction_is_suppressed_on_a_partial_profile():
+    """If the repo cap, a rate limit, or an exhausted budget stopped us short, the
+    skill may be in a repo we never opened. Absence then says nothing about the
+    candidate -- only about our collection."""
+    ev = _ev(skill="Python", counter_evidence=True, authorship_share=0.9,
+             channel_coverage=1.0)
+    assert verdict(ev, coverage_value=1.0, authored_repo_count=20,
+                   profile_partial=True) is Verdict.UNVERIFIABLE
+    assert verdict(ev, coverage_value=1.0, authored_repo_count=20,
+                   profile_partial=False) is Verdict.CONTRADICTED
+
+
+def test_score_passes_partial_through_to_the_gate():
+    ev = [_ev(skill="Python", counter_evidence=True, authorship_share=0.9,
+              channel_coverage=1.0, n_repos=20)]
+    partial = score(MARKET, claimed={"Python"}, evidence=ev, profile_partial=True)
+    complete = score(MARKET, claimed={"Python"}, evidence=ev, profile_partial=False)
+    assert partial.assessments[0].verdict is Verdict.UNVERIFIABLE
+    assert complete.assessments[0].verdict is Verdict.CONTRADICTED

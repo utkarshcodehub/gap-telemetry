@@ -16,6 +16,7 @@ from slowapi.util import get_remote_address
 
 from app.deps import get_current_user
 from app.schemas import (
+    GitHubStatusModel,
     AnalyzeResponse,
     GapReportModel,
     MarketSkill,
@@ -32,6 +33,9 @@ from core.extraction.extractor import SkillExtractor
 from core.gap.scorer import score_gap
 from core.market.sources import describe
 from core.github_profile.fetcher import GitHubFetchError, fetch_github_profile
+from core.github_profile.status import classify_error as gh_classify
+from core.github_profile.status import not_requested as gh_not_requested
+from core.github_profile.status import ok as gh_ok
 from core.resume.parser import ResumeParseError, assert_has_text_layer, parse_resume_text
 from core.roadmap.generator import generate_roadmap
 
@@ -192,14 +196,17 @@ async def analyze(
         raise HTTPException(422, str(e))
 
     github_skills: dict[str, int] = {}
-    github_status = "not_requested"
+    gh_status = gh_not_requested()
     if github_username:
         try:
             gh = fetch_github_profile(github_username, EXTRACTOR, token=settings.github_token)
             github_skills = gh.skills
-            github_status = f"ok ({gh.repo_count} repos)"
+            gh_status = gh_ok(gh.repo_count)
         except GitHubFetchError as e:
-            github_status = f"skipped: {e}"
+            # Never a quiet "skipped": classify_error states what failed and what
+            # to do, and the response carries evidence_used=False so a caller
+            # cannot mistake this for a score computed with evidence.
+            gh_status = gh_classify(e)
 
     store = get_store()
     try:
@@ -213,7 +220,7 @@ async def analyze(
     return AnalyzeResponse(
         report=GapReportModel.from_report(report),
         resume_skills_found=sorted(profile.skill_names),
-        github_status=github_status,
+        github=GitHubStatusModel(**gh_status.as_dict()),
     )
 
 
@@ -368,16 +375,16 @@ async def role_fit(
 
     # GitHub enrichment (optional, degrades gracefully)
     github_skills: dict[str, int] = {}
-    github_status = "not_requested"
+    gh_status = gh_not_requested()
     if github_username and github_username.strip():
         try:
             gh = fetch_github_profile(
                 github_username.strip(), EXTRACTOR, token=settings.github_token
             )
             github_skills = gh.skills
-            github_status = f"ok ({gh.repo_count} repos)"
+            gh_status = gh_ok(gh.repo_count)
         except GitHubFetchError as e:
-            github_status = f"skipped: {e}"
+            gh_status = gh_classify(e)
 
     candidate_skills = profile.skill_names | set(github_skills)
 
@@ -412,6 +419,6 @@ async def role_fit(
         "academic_adjustment": result.academic_adjustment,
         "academic_marks_used": list(result.academic_marks_used),
         "resume_skills_found": sorted(profile.skill_names),
-        "github_status": github_status,
+        "github": gh_status.as_dict(),
         "github_skills_used": sorted(github_skills.keys()),
     }

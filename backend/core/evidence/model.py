@@ -50,6 +50,21 @@ TIER_RANK: dict[Tier, int] = {
 VERIFIED_AT_OR_ABOVE = Tier.PRESENT
 
 
+class UnverifiableReason(str, Enum):
+    """Why a claim could not be verified. Five verdicts stay five; this splits the
+    one verdict that was carrying two completely different meanings.
+
+    BY_DESIGN is not a failure and must never read as one: no quantity of evidence
+    could verify "System Design" (EC-9). INSUFFICIENT_ARTIFACTS is a statement
+    about this candidate's public surface, which is the empty-GitHub majority case
+    (EC-1). Conflating them tells a student their concepts are unproven when the
+    system was never able to look.
+    """
+
+    BY_DESIGN = "by_design"
+    INSUFFICIENT_ARTIFACTS = "insufficient_artifacts"
+
+
 class Verdict(str, Enum):
     VERIFIED = "VERIFIED"
     WEAK = "WEAK"
@@ -121,10 +136,12 @@ class SkillEvidence:
     #: which must not be punished (section 8.2).
     authorship_share: float | None = None
 
-    #: Did we retrieve at least one evidence channel that COULD have carried this
-    #: skill's signal? Verdict-independent, which is what keeps coverage
-    #: non-circular (section 8.5).
-    channels_retrieved: bool = False
+    #: Share of in-scope repos where a channel capable of carrying this skill's
+    #: signal was successfully retrieved (section 8.5). Verdict-independent,
+    #: which is what keeps coverage non-circular. 0.0 means we never managed to
+    #: look anywhere; None means the question does not apply because the skill is
+    #: not artifact-verifiable.
+    channel_coverage: float | None = None
     #: Can this skill ever be evidenced by an artifact? False for soft skills and
     #: process/methodology (EC-9) -- excluded from coverage entirely.
     verifiable_by_design: bool = True
@@ -136,6 +153,11 @@ class SkillEvidence:
     #: artifacts, not inferred here from absence.
     counter_evidence: bool = False
 
+    @property
+    def channels_retrieved(self) -> bool:
+        """True when at least some artifact surface was retrieved for this skill."""
+        return bool(self.channel_coverage)
+
 
 @dataclass(frozen=True)
 class SkillAssessment:
@@ -145,6 +167,9 @@ class SkillAssessment:
     max_tier: Tier | None
     n_repos: int
     claimed: bool
+    #: Set only when verdict is UNVERIFIABLE. Lets a caller separate "nothing
+    #: could ever check this" from "we could not check it for you".
+    unverifiable_reason: UnverifiableReason | None = None
 
 
 # ---------------------------------------------------------------- confidence
@@ -189,22 +214,32 @@ def confidence(ev: SkillEvidence) -> float:
 
 
 def coverage(evidence: list[SkillEvidence], claimed: set[str]) -> float | None:
-    """checkable_claims / assessable_claims, or None when nothing is assessable.
+    """Mean per-claim channel coverage, or None when nothing is assessable.
 
-    Non-circular by construction: neither side consults a verdict (section 8.5).
-    Excludes skills that are not verifiable by design, and excludes attested
-    claims from BOTH sides -- otherwise attesting many skills would deflate
-    coverage and suppress CONTRADICTED across the board, which is a gaming vector.
+    Each assessable claim carries `channel_coverage`: the share of IN-SCOPE REPOS
+    where a channel capable of proving it was successfully retrieved. This is the
+    mean of those (section 8.5, revised).
+
+    The earlier definition counted a claim as "checkable" if ANY repo had yielded
+    a usable channel, which made coverage effectively binary -- it read 100%
+    whenever a single repo came back, even if nine others had failed. As the gate
+    protecting against false contradictions, a near-always-1.0 value protects
+    nothing. Averaging per-repo retrieval instead makes partial collection show up
+    as partial, which is what the gate needs to see.
+
+    Still non-circular: no term consults a verdict. Attested claims are excluded
+    from the mean entirely -- otherwise attesting many skills would drag coverage
+    down and suppress CONTRADICTED across the board, which is a gaming vector.
     """
     assessable = [e for e in evidence
                   if e.skill in claimed and e.verifiable_by_design and not e.attested]
     if not assessable:
         return None
-    checkable = sum(1 for e in assessable if e.channels_retrieved)
+    per_claim = [e.channel_coverage or 0.0 for e in assessable]
     # Deliberately NOT rounded: this value is compared against
     # CONTRADICTION_MIN_COVERAGE, and rounding a gate input can flip a boundary
     # case. Rounding for display is the caller's job.
-    return checkable / len(assessable)
+    return sum(per_claim) / len(per_claim)
 
 
 # ------------------------------------------------------------------- verdict
@@ -215,6 +250,7 @@ def verdict(
     *,
     coverage_value: float | None,
     authored_repo_count: int,
+    profile_partial: bool = False,
 ) -> Verdict:
     """Classify one CLAIMED skill.
 
@@ -228,7 +264,8 @@ def verdict(
         return Verdict.VERIFIED
 
     if ev.counter_evidence and _contradiction_permitted(
-        ev, coverage_value=coverage_value, authored_repo_count=authored_repo_count
+        ev, coverage_value=coverage_value, authored_repo_count=authored_repo_count,
+        profile_partial=profile_partial,
     ):
         return Verdict.CONTRADICTED
 
@@ -244,8 +281,14 @@ def verdict(
 
 
 def _contradiction_permitted(
-    ev: SkillEvidence, *, coverage_value: float | None, authored_repo_count: int
+    ev: SkillEvidence, *, coverage_value: float | None, authored_repo_count: int,
+    profile_partial: bool = False,
 ) -> bool:
+    if profile_partial:
+        # We did not see the whole profile -- because of the repo cap, a rate
+        # limit, or an exhausted budget. The skill may well be in a repo we never
+        # opened, so absence here is not counter-evidence about the candidate.
+        return False
     if ev.attested:
         return False            # never accuse work we were told is private
     if not ev.verifiable_by_design:
@@ -258,6 +301,13 @@ def _contradiction_permitted(
     if share is not None and share < CONTRADICTION_MIN_AUTHORSHIP_SHARE:
         return False
     return True
+
+
+def unverifiable_reason_for(ev: SkillEvidence) -> UnverifiableReason:
+    """Why this claim is UNVERIFIABLE. Only meaningful for that verdict."""
+    if not ev.verifiable_by_design:
+        return UnverifiableReason.BY_DESIGN
+    return UnverifiableReason.INSUFFICIENT_ARTIFACTS
 
 
 # ----------------------------------------------------------------- readiness
@@ -281,6 +331,7 @@ def score(
     *,
     min_demand_pct: float = 5.0,
     soft_categories: frozenset[str] = frozenset({"soft_skill"}),
+    profile_partial: bool = False,
 ) -> EvidenceReport:
     """Produce both readiness numbers plus what sits outside them.
 
@@ -307,7 +358,8 @@ def score(
             continue
         claimed_demand += m["demand_pct"]
         ev = by_skill.get(name, SkillEvidence(skill=name))
-        v = verdict(ev, coverage_value=cov, authored_repo_count=authored_repos)
+        v = verdict(ev, coverage_value=cov, authored_repo_count=authored_repos,
+                    profile_partial=profile_partial)
         conf = confidence(ev)
         # ATTESTED contributes nothing to verified readiness (section 8.4).
         if v is not Verdict.ATTESTED:
@@ -315,6 +367,8 @@ def score(
         assessments.append(SkillAssessment(
             skill=name, verdict=v, confidence=conf,
             max_tier=ev.max_tier, n_repos=ev.n_repos, claimed=True,
+            unverifiable_reason=(unverifiable_reason_for(ev)
+                                 if v is Verdict.UNVERIFIABLE else None),
         ))
 
     basket_names = {m["canonical"] for m in basket}

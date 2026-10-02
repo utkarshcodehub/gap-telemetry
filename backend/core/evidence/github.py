@@ -115,7 +115,11 @@ class GitHubClient:
     #: Set once GitHub starts rate-limiting. Every subsequent call this
     #: hour would fail identically, so collection short-circuits.
     rate_limited: bool = False
+    #: Transient network failures that were absorbed. Non-empty means the
+    #: profile is partial, so absence is not evidence.
+    transport_errors: list[str] = field(default_factory=list)
     _partial: bool = False
+    _sess: Any = None
 
     @property
     def partial(self) -> bool:
@@ -158,6 +162,34 @@ class GitHubClient:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps({"url": url, "body": body}), encoding="utf-8")
 
+    def _session(self) -> requests.Session:
+        """Pooled session with retries.
+
+        A full profile is ~95 sequential requests. Opening a fresh TLS connection
+        for each one is both slow and fragile -- a single remote reset killed an
+        entire analysis before this existed. Pooling reuses one connection and the
+        retry handles the transient resets and 5xx that are normal at this volume.
+        Note 403/429 are NOT retried: they mean rate-limited, and hammering a rate
+        limit is how you stay rate-limited.
+        """
+        if self._sess is None:
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+
+            sess = requests.Session()
+            retry = Retry(
+                total=3, connect=3, read=3,
+                backoff_factor=0.6,
+                status_forcelist=(500, 502, 503, 504),
+                allowed_methods=frozenset({"GET"}),
+                raise_on_status=False,
+            )
+            adapter = HTTPAdapter(max_retries=retry, pool_connections=4,
+                                  pool_maxsize=4)
+            sess.mount("https://", adapter)
+            self._sess = sess
+        return self._sess
+
     def _fetch(self, url: str, *, as_text: bool, raw: bool = False) -> Any:
         hit = self._cached(url)
         if hit is not None:
@@ -165,7 +197,15 @@ class GitHubClient:
         if self.rate_limited:
             return None      # short-circuit: see the 403 branch below
         self.budget.take()
-        resp = requests.get(url, headers=self._headers(raw), timeout=30)
+        try:
+            resp = self._session().get(url, headers=self._headers(raw), timeout=30)
+        except requests.RequestException as e:
+            # Degrade, never crash. One flaky connection must not discard the
+            # ~90 successful requests already spent, and must not be mistaken for
+            # "this repo has no evidence" (NFR-4).
+            self._partial = True
+            self.transport_errors.append(f"{type(e).__name__} on {url[-60:]}")
+            return None
 
         if resp.status_code == 401 and self.token:
             # An expired or revoked token must not kill the analysis. GitHub's
@@ -493,15 +533,34 @@ def _matches(spec: ChannelSpec, repo: RepoSnapshot) -> set[Channel]:
     return hits
 
 
+def _channel_retrieved_for(spec: ChannelSpec, repo: RepoSnapshot) -> bool:
+    """Did THIS repo yield a channel capable of carrying THIS skill's signal?
+
+    Per-repo, not profile-wide: a skill is only checkable in a repo whose relevant
+    artifacts we actually read. This is what makes verification_coverage graded
+    rather than effectively binary (EVIDENCE_MODEL section 8.5, revised).
+    """
+    channels = spec.channels
+    if Channel.MANIFEST in channels and repo.manifest_retrieved:
+        return True
+    if Channel.FILE_TREE in channels and repo.tree_retrieved:
+        return True
+    # The language field arrives with the repo listing, so it is retrieved
+    # whenever the repo is in scope at all.
+    if Channel.LANGUAGE in channels:
+        return True
+    return False
+
+
 def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
     """Turn repo snapshots into one SkillEvidence per mapped skill."""
-    any_tree = any(r.tree_retrieved for r in profile.repos)
-    any_manifest = any(r.manifest_retrieved for r in profile.repos)
-    any_language = any(r.primary_language for r in profile.repos)
+    in_scope = len(profile.repos)
 
     out: list[SkillEvidence] = []
     for skill, spec in CHANNELS.items():
         if not spec.verifiable:
+            # channel_coverage stays None: the question does not apply, which is
+            # different from "we looked and found no way to check".
             out.append(SkillEvidence(skill=skill, verifiable_by_design=False))
             continue
 
@@ -527,12 +586,11 @@ def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
 
         # Checkability is about what we RETRIEVED, never what we concluded --
         # that is what keeps verification_coverage non-circular (section 8.5).
-        channels = spec.channels
-        retrieved = (
-            (Channel.FILE_TREE in channels and any_tree)
-            or (Channel.MANIFEST in channels and any_manifest)
-            or (Channel.LANGUAGE in channels and any_language)
-        )
+        # Counted per repo and averaged, so nine failed fetches out of ten show
+        # up as 10% coverage rather than as a confident 100%.
+        retrieved_in = sum(1 for r in profile.repos
+                           if _channel_retrieved_for(spec, r))
+        channel_coverage = (retrieved_in / in_scope) if in_scope else 0.0
 
         out.append(SkillEvidence(
             skill=skill,
@@ -540,7 +598,7 @@ def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
             n_repos=repos_hit,
             recency_months=recency,
             authorship_share=max(shares) if shares else None,
-            channels_retrieved=retrieved,
+            channel_coverage=channel_coverage,
             verifiable_by_design=True,
         ))
     return out

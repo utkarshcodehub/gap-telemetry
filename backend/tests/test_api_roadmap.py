@@ -136,7 +136,8 @@ def test_analyze_with_text(client, auth_headers):
     body = r.json()
     assert "Python" in body["resume_skills_found"]
     assert body["report"]["readiness_score"] > 0
-    assert body["github_status"] == "not_requested"
+    assert body["github"]["state"] == "not_requested"
+    assert body["github"]["evidence_used"] is False
 
 
 def test_analyze_requires_input(client, auth_headers):
@@ -155,7 +156,13 @@ def test_analyze_github_failure_degrades_not_dies(client, auth_headers, monkeypa
         "role": "ml", "resume_text": "Python and SQL", "github_username": "someone",
     }, headers=auth_headers)
     assert r.status_code == 200
-    assert "skipped" in r.json()["github_status"]
+    gh = r.json()["github"]
+    # Never a bare "skipped": the state must name what failed, and
+    # evidence_used must make clear the score had no GitHub input.
+    assert gh["state"] in {"user_not_found", "rate_limited", "token_rejected", "error"}
+    assert gh["evidence_used"] is False
+    assert gh["severity"] in {"warn", "error"}
+    assert "skipped" not in gh["message"].lower()
 
 
 def test_analyze_rejects_non_pdf_upload(client, auth_headers):

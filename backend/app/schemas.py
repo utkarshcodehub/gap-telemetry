@@ -54,10 +54,24 @@ class GapReportModel(BaseModel):
         )
 
 
+class GitHubStatusModel(BaseModel):
+    """Explicit fetch outcome. Replaces a bare status string that the UI used to
+    interpret with startsWith('ok') -- which is how an expired token went
+    unnoticed while every analysis silently fell back to resume-only evidence."""
+
+    state: str
+    message: str
+    repos_analysed: int
+    #: False whenever the readiness score was computed WITHOUT GitHub evidence.
+    evidence_used: bool
+    #: info | warn | error, so the UI never guesses severity from a prefix.
+    severity: str
+
+
 class AnalyzeResponse(BaseModel):
     report: GapReportModel
     resume_skills_found: list[str]
-    github_status: str
+    github: GitHubStatusModel
 
 
 class RoadmapRequest(BaseModel):

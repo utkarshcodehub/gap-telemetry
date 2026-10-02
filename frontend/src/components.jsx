@@ -115,20 +115,26 @@ export function StrengthsPanel({ report }) {
 }
 
 export function GitHubEvidencePanel({ githubStatus, report }) {
-  if (!githubStatus || githubStatus === 'not_requested') return null;
-  if (!githubStatus.startsWith('ok')) {
+  if (!githubStatus || githubStatus.state === 'not_requested') return null;
+
+  // A fetch that did not happen must say so loudly, and must say that the
+  // readiness score above was therefore computed from resume claims alone.
+  // Reporting this as a quiet "skipped" line is the failure this replaces.
+  if (!githubStatus.evidence_used) {
     return (
       <section className="panel">
-        <h2>GitHub evidence</h2>
-        <div className="error">Couldn't use GitHub evidence: {githubStatus.replace(/^skipped: /, '')}</div>
+        <h2>GitHub evidence <span className="engine-tag">not available</span></h2>
+        <div className="error">
+          <b>No GitHub evidence was used in the score above.</b>
+          <div style={{ marginTop: 6, fontWeight: 400 }}>{githubStatus.message}</div>
+        </div>
       </section>
     );
   }
 
   const hiddenNames = new Set(report.hidden_strengths.map((h) => h.canonical));
   const contributed = report.strengths.filter((s) => s.evidence === 'github' || s.evidence === 'resume+github');
-  const repoMatch = githubStatus.match(/\((\d+) repos?\)/);
-  const repoCount = repoMatch ? repoMatch[1] : '?';
+  const repoCount = githubStatus.repos_analysed ?? '?';
 
   return (
     <section className="panel">
