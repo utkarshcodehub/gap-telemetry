@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from pathlib import Path
+
 import requests
 
+from core import http_cache
 from core.extraction.extractor import SkillExtractor
 
 API = "https://api.github.com"
@@ -36,15 +39,16 @@ class GitHubFetchError(Exception):
     pass
 
 
-def _fetch_readme_text(username: str, repo_name: str, headers: dict, timeout: int) -> str:
+def _fetch_readme_text(username: str, repo_name: str, headers: dict, timeout: int,
+                       cache_dir: Path | None = None) -> str:
     try:
-        resp = requests.get(
+        status, body = http_cache.get_text(
             f"{API}/repos/{username}/{repo_name}/readme",
             headers={**headers, "Accept": "application/vnd.github.raw"},
-            timeout=timeout,
+            timeout=timeout, cache_dir=cache_dir,
         )
-        if resp.status_code == 200:
-            return resp.text[:README_MAX_CHARS]
+        if status == 200:
+            return body[:README_MAX_CHARS]
     except requests.RequestException:
         pass
     return ""
@@ -55,23 +59,34 @@ def fetch_github_profile(
     extractor: SkillExtractor | None = None,
     token: str | None = None,
     timeout: int = 15,
+    cache_dir: Path | None = None,
 ) -> GitHubProfile:
+    """Legacy README-keyword profile fetch.
+
+    `cache_dir` is strongly recommended: without it this re-fetches a repo list
+    plus up to README_FETCH_LIMIT READMEs on every call, measured at ~15s and ~24
+    requests against a rate limit shared by every analysis. See core/http_cache.
+    """
     extractor = extractor or SkillExtractor()
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
-    resp = requests.get(
+    status, repos_body = http_cache.get_json(
         f"{API}/users/{username}/repos",
         params={"per_page": 100, "sort": "updated", "type": "owner"},
-        headers=headers, timeout=timeout,
+        headers=headers, timeout=timeout, cache_dir=cache_dir,
     )
-    if resp.status_code == 404:
+
+    if status == 404:
         raise GitHubFetchError(f"GitHub user '{username}' not found")
-    if resp.status_code == 403:
+    if status == 403:
         raise GitHubFetchError("GitHub rate limit hit — retry later or pass a token")
-    resp.raise_for_status()
-    repos = resp.json()
+    if status == 401:
+        raise GitHubFetchError("GitHub rejected the token (401 Bad credentials)")
+    if status != 200 or repos_body is None:
+        raise GitHubFetchError(f"GitHub returned HTTP {status}")
+    repos = repos_body
 
     skill_repo_count: dict[str, int] = {}
     languages: dict[str, int] = {}
@@ -82,7 +97,8 @@ def fetch_github_profile(
             continue
         readme_text = ""
         if readmes_fetched < README_FETCH_LIMIT:
-            readme_text = _fetch_readme_text(username, repo.get("name", ""), headers, timeout)
+            readme_text = _fetch_readme_text(username, repo.get("name", ""), headers,
+                                             timeout, cache_dir)
             readmes_fetched += 1
         evidence_text = " ".join(filter(None, [
             repo.get("name", "").replace("-", " ").replace("_", " "),

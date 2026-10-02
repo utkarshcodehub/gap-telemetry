@@ -213,7 +213,9 @@ async def analyze(
     gh_status = gh_not_requested()
     if github_username:
         try:
-            gh = fetch_github_profile(github_username, EXTRACTOR, token=settings.github_token)
+            gh = fetch_github_profile(github_username, EXTRACTOR,
+                                      token=settings.github_token,
+                                      cache_dir=EVIDENCE_CACHE_DIR)
             github_skills = gh.skills
             gh_status = gh_ok(gh.repo_count)
         except GitHubFetchError as e:
@@ -451,7 +453,8 @@ async def role_fit(
     if github_username and github_username.strip():
         try:
             gh = fetch_github_profile(
-                github_username.strip(), EXTRACTOR, token=settings.github_token
+                github_username.strip(), EXTRACTOR, token=settings.github_token,
+                cache_dir=EVIDENCE_CACHE_DIR,
             )
             github_skills = gh.skills
             gh_status = gh_ok(gh.repo_count)

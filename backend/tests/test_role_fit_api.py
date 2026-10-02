@@ -83,7 +83,7 @@ def test_github_skills_are_merged_into_the_match(client, auth_headers, monkeypat
     """
     before = _post(client, auth_headers).json()
 
-    def fake_fetch(username, extractor, token=None):
+    def fake_fetch(username, extractor, token=None, cache_dir=None):
         assert username == "octocat"
         return GitHubProfile(
             username=username,
@@ -109,7 +109,7 @@ def test_github_skills_are_merged_into_the_match(client, auth_headers, monkeypat
 def test_github_failure_degrades_without_failing_the_request(
     client, auth_headers, monkeypatch
 ):
-    def boom(username, extractor, token=None):
+    def boom(username, extractor, token=None, cache_dir=None):
         raise GitHubFetchError("rate limited")
 
     monkeypatch.setattr(main, "fetch_github_profile", boom)

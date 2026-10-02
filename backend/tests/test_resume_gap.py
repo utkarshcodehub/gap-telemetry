@@ -129,19 +129,27 @@ def test_github_fetcher_parses_repos(monkeypatch):
          "description": "Forked repo must be ignored", "topics": []},
     ]
 
+    import json as _json
+
     class FakeResp:
         status_code = 200
-        def json(self): return fake_repos
-        def raise_for_status(self): pass
+        text = _json.dumps(fake_repos)
 
     class FakeReadmeResp:
         status_code = 404  # no README on any of these fake repos
+        text = ""
 
     def fake_get(url, *a, **k):
         return FakeReadmeResp() if "/readme" in url else FakeResp()
 
-    monkeypatch.setattr(gh.requests, "get", fake_get)
-    profile = gh.fetch_github_profile("testuser")
+    # The fetcher now goes through core.http_cache's pooled session rather than
+    # calling requests.get directly, so the stub belongs at that seam. cache_dir
+    # is left None so nothing is read from or written to the real disk cache.
+    class FakeSession:
+        get = staticmethod(fake_get)
+
+    monkeypatch.setattr(gh.http_cache, "session", lambda: FakeSession())
+    profile = gh.fetch_github_profile("testuser", cache_dir=None)
 
     assert profile.repo_count == 2
     assert "Go" not in profile.languages
