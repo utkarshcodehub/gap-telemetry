@@ -38,6 +38,7 @@ from typing import Any, Protocol
 
 import requests
 
+from core.evidence.absence import absence_is_evidence
 from core.evidence.channels import CHANNELS, Channel, ChannelSpec
 from core.evidence.model import SkillEvidence, Tier
 
@@ -592,13 +593,28 @@ def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
                            if _channel_retrieved_for(spec, r))
         channel_coverage = (retrieved_in / in_scope) if in_scope else 0.0
 
+        # Positive counter-evidence, not inferred from absence alone: the skill
+        # is on a deliberately tiny allowlist of cases where the artifact is
+        # effectively unavoidable, we read the detecting channel in enough repos,
+        # and it still is not there. core/evidence/absence.py explains why almost
+        # nothing qualifies -- manifest-only skills in particular cannot, because
+        # we sample manifests rather than reading them all.
+        counter = absence_is_evidence(
+            skill,
+            found=best is not None,
+            repos_with_channel=retrieved_in,
+            channel_coverage=channel_coverage,
+        )
+
         out.append(SkillEvidence(
             skill=skill,
             max_tier=best,
             n_repos=repos_hit,
+            repos_with_channel=retrieved_in,
             recency_months=recency,
             authorship_share=max(shares) if shares else None,
             channel_coverage=channel_coverage,
             verifiable_by_design=True,
+            counter_evidence=counter,
         ))
     return out

@@ -130,6 +130,11 @@ class SkillEvidence:
     max_tier: Tier | None = None
     #: Distinct repos supplying artifact evidence.
     n_repos: int = 0
+    #: Distinct repos where a channel capable of proving this skill was READ.
+    #: Distinct from n_repos, which counts where it was FOUND. The contradiction
+    #: message must quote this one -- saying "we looked across 0 repositories"
+    #: makes a well-founded accusation read as baseless.
+    repos_with_channel: int = 0
     #: Months since the most recent evidence was touched. None = unknown.
     recency_months: float | None = None
     #: Candidate's share of commits in the evidencing repo(s). None = unknown,
@@ -170,6 +175,12 @@ class SkillAssessment:
     #: Set only when verdict is UNVERIFIABLE. Lets a caller separate "nothing
     #: could ever check this" from "we could not check it for you".
     unverifiable_reason: UnverifiableReason | None = None
+    #: Whether this role's demand basket contains the skill. Verdicts are produced
+    #: for every claim; only the readiness PERCENTAGE depends on the basket, so a
+    #: claim outside it is assessed but contributes nothing to the score.
+    in_demand_basket: bool = True
+    #: The skill's market demand, or None when outside the basket.
+    demand_pct: float | None = None
 
 
 # ---------------------------------------------------------------- confidence
@@ -284,6 +295,11 @@ def _contradiction_permitted(
     ev: SkillEvidence, *, coverage_value: float | None, authored_repo_count: int,
     profile_partial: bool = False,
 ) -> bool:
+    from core.evidence.absence import can_be_contradicted
+    if not can_be_contradicted(ev.skill):
+        # Defence in depth: the allowlist is enforced here too, so a caller that
+        # sets counter_evidence directly cannot bypass it.
+        return False
     if profile_partial:
         # We did not see the whole profile -- because of the repo cap, a rate
         # limit, or an exhausted budget. The skill may well be in a repo we never
@@ -348,27 +364,37 @@ def score(
     cov = coverage(evidence, claimed)
     authored_repos = max((e.n_repos for e in evidence), default=0)
 
+    demand_by_skill = {m["canonical"]: m["demand_pct"] for m in basket}
+
     claimed_demand = 0.0
     verified_demand = 0.0
     assessments: list[SkillAssessment] = []
 
-    for m in basket:
-        name = m["canonical"]
-        if name not in claimed:
-            continue
-        claimed_demand += m["demand_pct"]
+    # EVERY claim is assessed, whether or not this role's market wants it. The
+    # demand basket decides what counts toward a PERCENTAGE; it has no business
+    # deciding whether a candidate's claim gets looked at. Previously a resume
+    # listing FastAPI and Supabase simply had those claims ignored for a backend
+    # role, which reads as "unverified" when in fact nobody checked.
+    for name in sorted(claimed):
         ev = by_skill.get(name, SkillEvidence(skill=name))
         v = verdict(ev, coverage_value=cov, authored_repo_count=authored_repos,
                     profile_partial=profile_partial)
         conf = confidence(ev)
-        # ATTESTED contributes nothing to verified readiness (section 8.4).
-        if v is not Verdict.ATTESTED:
-            verified_demand += m["demand_pct"] * conf
+        demand = demand_by_skill.get(name)
+
+        if demand is not None:
+            claimed_demand += demand
+            # ATTESTED contributes nothing to verified readiness (section 8.4).
+            if v is not Verdict.ATTESTED:
+                verified_demand += demand * conf
+
         assessments.append(SkillAssessment(
             skill=name, verdict=v, confidence=conf,
             max_tier=ev.max_tier, n_repos=ev.n_repos, claimed=True,
             unverifiable_reason=(unverifiable_reason_for(ev)
                                  if v is Verdict.UNVERIFIABLE else None),
+            in_demand_basket=demand is not None,
+            demand_pct=demand,
         ))
 
     basket_names = {m["canonical"] for m in basket}

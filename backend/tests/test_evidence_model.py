@@ -207,24 +207,28 @@ def test_attestation_ranks_below_anything_checked_and_above_a_bare_claim():
 # --------------------------------------------- contradiction safety rule (s4)
 
 def test_contradiction_fires_only_with_positive_counter_evidence():
-    """It must NEVER follow from absence alone -- that is the whole rule."""
-    absent = SkillEvidence("X", counter_evidence=False)
+    """It must NEVER follow from absence alone -- that is the whole rule.
+
+    Uses Docker because the skill must also be on the absence allowlist; see
+    test_contradiction_allowlist.py for that half.
+    """
+    absent = SkillEvidence("Docker", counter_evidence=False)
     assert verdict(absent, **PLENTY) is Verdict.UNVERIFIABLE
 
-    accused = SkillEvidence("X", counter_evidence=True, authorship_share=0.9)
+    accused = SkillEvidence("Docker", counter_evidence=True, authorship_share=0.9)
     assert verdict(accused, **PLENTY) is Verdict.CONTRADICTED
 
 
 def test_contradiction_is_suppressed_at_low_coverage():
     """If we barely looked, we do not get to accuse. This is also why coverage has
     to be verdict-independent (section 8.5) or the gate is circular."""
-    ev = SkillEvidence("X", counter_evidence=True, authorship_share=0.9)
+    ev = SkillEvidence("Docker", counter_evidence=True, authorship_share=0.9)
     assert verdict(ev, coverage_value=0.2, authored_repo_count=20) is Verdict.UNVERIFIABLE
     assert verdict(ev, coverage_value=None, authored_repo_count=20) is Verdict.UNVERIFIABLE
 
 
 def test_contradiction_is_suppressed_without_enough_analysed_material():
-    ev = SkillEvidence("X", counter_evidence=True, authorship_share=0.9)
+    ev = SkillEvidence("Docker", counter_evidence=True, authorship_share=0.9)
     assert verdict(ev, coverage_value=1.0,
                    authored_repo_count=CONTRADICTION_MIN_AUTHORED_REPOS - 1
                    ) is Verdict.UNVERIFIABLE
@@ -233,7 +237,7 @@ def test_contradiction_is_suppressed_without_enough_analysed_material():
 def test_contradiction_never_fires_against_attested_private_work():
     """Accusing someone over work they told us they cannot show is the single
     worst output this system could produce."""
-    ev = SkillEvidence("X", counter_evidence=True, attested=True,
+    ev = SkillEvidence("Docker", counter_evidence=True, attested=True,
                        authorship_share=0.9)
     assert verdict(ev, **PLENTY) is Verdict.ATTESTED
 
@@ -246,14 +250,14 @@ def test_contradiction_never_fires_for_a_non_artifact_skill():
 
 def test_contradiction_is_suppressed_when_the_code_is_mostly_someone_elses():
     """Low authorship means the repo's contents say little about this person."""
-    ev = SkillEvidence("X", counter_evidence=True, authorship_share=0.1)
+    ev = SkillEvidence("Docker", counter_evidence=True, authorship_share=0.1)
     assert verdict(ev, **PLENTY) is Verdict.UNVERIFIABLE
 
 
 def test_unknown_authorship_does_not_block_contradiction():
     """Unknown is not the same as low: requiring a known-high share would make the
     verdict unreachable whenever the commits API is unavailable."""
-    ev = SkillEvidence("X", counter_evidence=True, authorship_share=None)
+    ev = SkillEvidence("Docker", counter_evidence=True, authorship_share=None)
     assert verdict(ev, **PLENTY) is Verdict.CONTRADICTED
 
 
@@ -379,7 +383,7 @@ def test_contradiction_is_suppressed_on_a_partial_profile():
     """If the repo cap, a rate limit, or an exhausted budget stopped us short, the
     skill may be in a repo we never opened. Absence then says nothing about the
     candidate -- only about our collection."""
-    ev = _ev(skill="Python", counter_evidence=True, authorship_share=0.9,
+    ev = _ev(skill="Docker", counter_evidence=True, authorship_share=0.9,
              channel_coverage=1.0)
     assert verdict(ev, coverage_value=1.0, authored_repo_count=20,
                    profile_partial=True) is Verdict.UNVERIFIABLE
@@ -388,9 +392,47 @@ def test_contradiction_is_suppressed_on_a_partial_profile():
 
 
 def test_score_passes_partial_through_to_the_gate():
-    ev = [_ev(skill="Python", counter_evidence=True, authorship_share=0.9,
+    ev = [_ev(skill="Docker", counter_evidence=True, authorship_share=0.9,
               channel_coverage=1.0, n_repos=20)]
-    partial = score(MARKET, claimed={"Python"}, evidence=ev, profile_partial=True)
-    complete = score(MARKET, claimed={"Python"}, evidence=ev, profile_partial=False)
+    partial = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=True)
+    complete = score(MARKET, claimed={"Docker"}, evidence=ev, profile_partial=False)
     assert partial.assessments[0].verdict is Verdict.UNVERIFIABLE
     assert complete.assessments[0].verdict is Verdict.CONTRADICTED
+
+
+# ------------------------------- every claim is assessed (section 8.7)
+
+def test_claims_outside_the_demand_basket_still_get_verdicts():
+    """Section 8.7. The basket decides what moves a PERCENTAGE, not what gets
+    looked at.
+
+    Before this, a backend-role analysis silently dropped FastAPI, Supabase and
+    Pandas because their demand sits under the 5% floor -- and a reader cannot tell
+    "below the floor" from "unverified" when both simply fail to appear.
+    """
+    r = score(MARKET, claimed={"Python", "Kubernetes"}, evidence=[
+        _ev(skill="Python", max_tier=Tier.DECLARED, channel_coverage=1.0),
+        _ev(skill="Kubernetes", max_tier=Tier.DECLARED, channel_coverage=1.0),
+    ])
+    assessed = {a.skill: a for a in r.assessments}
+    assert set(assessed) == {"Python", "Kubernetes"}
+    assert assessed["Kubernetes"].verdict is Verdict.VERIFIED, (
+        "Kubernetes is not in MARKET's basket, but the claim was still assessed"
+    )
+    assert assessed["Kubernetes"].in_demand_basket is False
+    assert assessed["Kubernetes"].demand_pct is None
+    assert assessed["Python"].in_demand_basket is True
+    assert assessed["Python"].demand_pct == 50.0
+
+
+def test_out_of_basket_claims_do_not_move_either_percentage():
+    with_extra = score(MARKET, claimed={"Python", "Kubernetes"}, evidence=[
+        _ev(skill="Python", max_tier=Tier.DECLARED, channel_coverage=1.0),
+        _ev(skill="Kubernetes", max_tier=Tier.AUTHORED, n_repos=9,
+            channel_coverage=1.0),
+    ])
+    without = score(MARKET, claimed={"Python"}, evidence=[
+        _ev(skill="Python", max_tier=Tier.DECLARED, channel_coverage=1.0),
+    ])
+    assert with_extra.claimed_readiness == without.claimed_readiness
+    assert with_extra.verified_readiness == without.verified_readiness

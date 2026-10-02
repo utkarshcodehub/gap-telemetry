@@ -345,6 +345,63 @@ a repo nobody opened, so absence is a fact about our collection, not about the
 candidate. These are two different incompletenesses and only one of them was
 previously gated.
 
+### 8.7 Every claim gets a verdict; only the percentage depends on the basket *(decided 2026-10-02)*
+
+A claim is assessed whether or not the role's demand basket wants it. The basket
+decides what contributes to a **percentage**; it has no business deciding whether
+a candidate's claim is looked at.
+
+*Reasoning.* The first real run assessed 9 of 27 claimed skills for a backend role
+and silently dropped FastAPI, Supabase, Pandas, NumPy, scikit-learn and the rest,
+because their demand for that role is under the 5% floor. A reader cannot tell
+"below the demand floor" from "unverified" — both simply fail to appear. After the
+change, VERIFIED on the author's own profile went from 5 to **16**. The readiness
+figures are unchanged, because those skills still contribute nothing to the
+percentage; what changed is that the candidate is now told what the system found.
+
+Assessments carry `in_demand_basket` and `demand_pct` so the two groups can be
+shown separately.
+
+### 8.8 `CONTRADICTED` requires an absence allowlist 🔶 *flag for mentor review*
+
+A per-skill eligibility list decides when absence is evidence at all. **A skill not
+on it can never be CONTRADICTED**, whatever the evidence shows. Eligible skills must
+still clear every §8.3 gate plus a non-partial profile.
+
+**Admission criterion**, which matters more than the list:
+
+1. **The evidence must live in the file tree, not only in a manifest.** Trees are
+   read completely; manifests are **sampled** (`MAX_MANIFESTS_PER_REPO`). For a
+   manifest-only skill, absence may just mean we never opened the file that
+   declared it.
+2. **The artifact must be effectively unavoidable** — Docker without a Dockerfile
+   is close to impossible; MongoDB without a locally-declared driver is routine.
+3. **It must live where we look** — root or a conventional path, not behind a build
+   step or in a sibling infrastructure repo.
+
+**Admitted: `Docker`, `Terraform`.** Both file-tree detectable, both with an
+unavoidable artifact at a conventional path.
+
+**Rejected, with reasons** — the rejections are the substance:
+
+| Rejected | Why |
+|---|---|
+| MySQL, MongoDB, PostgreSQL, Redis | Manifest-only, and we sample manifests. Also routinely used via a hosted client or ORM that never names them locally. Fails (1). |
+| React, Angular, Vue.js | Manifest-only; same sampling problem. Fails (1). |
+| CI/CD | File-tree detectable, but using CI at work while keeping personal repos plain is entirely normal. Fails (2). |
+| Kubernetes | Manifests usually live in a separate infrastructure repo outside the profile. Fails (3). |
+| Python, TypeScript, Java | Already positively detected from language statistics; a contradiction adds nothing a reader cannot see. |
+
+**What a contradiction means to the candidate.** Not "you lied". It means *your
+public code does not support this claim, so add evidence or mark it private*. The
+attestation path (EA / FR-41) exists so a candidate whose real experience is at
+work has a truthful answer, which is what makes the verdict survivable — and why
+it must stay rare.
+
+**First live result**, on the author's own profile (23 repos, every tree read,
+non-partial): **`Docker` → CONTRADICTED**, `MySQL` and `MongoDB` → `UNVERIFIABLE`.
+The database skills were spared by criterion (1), not by luck.
+
 ### 8.6 Unclaimed-verified skills sit outside both numbers ✅
 
 **Decided: reported separately**, in neither readiness figure.
