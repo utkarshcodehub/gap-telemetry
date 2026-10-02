@@ -334,6 +334,24 @@ share of postings. Check `C` and `R` specifically against the raw `extract_text`
 postings that matched, before any taxonomy expansion — expanding on top of a precision bug
 would bake it in.
 
+*Still present at 20.4% after the corpus grew to 1,442 postings (859 Naukri + 583 live
+JSearch), so it is not an artifact of the small 2020 sample.*
+
+**L-2 · Skills in the job TITLE are never extracted — a pure recall loss.**
+*Found 2026-10-02.* Extraction runs on the description only
+(`ingest.py` → `rec.text_for_extraction`). The title is stored and used to derive
+`role_query`, then discarded as a skill source. A real example now in the database: a
+posting titled **"JavaScript Frontend Developer"** has **zero** extracted skills, because
+its description is pure company boilerplate that never names a technology. Another,
+**"Cloud Solution Architects AWS /GCP /Azure"**, likewise contributes nothing.
+
+Titles are unusually skill-dense — they are written to be scanned — so this is probably the
+cheapest recall win available. 24 of 1,442 postings (1.7%) currently have no skills at all,
+and those rows actively *dilute* every demand percentage: they inflate the denominator
+while counting toward no skill. The fix is to extract from title + description, likely
+weighting a title mention at least as strongly as a body mention. Worth measuring the
+before/after as part of experiment **E3**.
+
 ### 9.3 Architecture
 
 ```

@@ -33,9 +33,24 @@ MARKET = "IN"
 #: Extraction still runs on the full text -- see PostingRecord.extract_text.
 EXCERPT_CHARS = 500
 
-#: Rate limit is 1,000/hour, so a monthly run of ~190 is nowhere near it. This
-#: is politeness, not necessity.
+#: Rate limit is 1,000/hour, so a monthly run is nowhere near it. This is
+#: politeness, not necessity.
 PAUSE_SECONDS = 0.4
+
+#: Pages are NOT free. Measured against the provider's own counter: 7 API calls
+#: consumed 12 requests, and the only model that fits is one request per 5 pages
+#: (num_pages=1..5 -> 1, 6..10 -> 2, 20 -> 4). Results per request are therefore
+#: flat at ~48 whatever num_pages is, so deeper pages buy nothing; num_pages=5 is
+#: preferred for finer granularity and less waste on a shallow query.
+PAGES_PER_REQUEST = 5
+DEFAULT_NUM_PAGES = 5
+
+
+def request_cost(num_pages: int) -> int:
+    """How many quota requests one API call with `num_pages` will consume."""
+    if num_pages < 1:
+        raise ValueError("num_pages must be >= 1")
+    return -(-num_pages // PAGES_PER_REQUEST)  # ceil division
 
 
 class JSearchError(RuntimeError):
@@ -103,7 +118,15 @@ def to_record(job: dict) -> PostingRecord | None:
         return None
 
     description = _clean(job.get("job_description"))
-    external_id = _clean(job.get("job_id")) or _clean(job.get("job_uid"))
+
+    # MUST be job_uid, never job_id. `job_id` is ~402 chars and decodes to
+    # "<job_uid>:<rotating per-request token>", so the SAME posting comes back
+    # under a different job_id on every call. Keying on it made two identical
+    # queries look 100% disjoint; left in place, every monthly run would have
+    # re-inserted the whole corpus as new rows, inflating counts and distorting
+    # every demand percentage, while the already-held early-stop never fired.
+    # job_uid is the stable 24-char Google docid (and a far better DB key).
+    external_id = _clean(job.get("job_uid"))
     if not description or not external_id:
         return None
 

@@ -122,13 +122,38 @@ exports**.
 
 ---
 
-## 3. JSearch — live India feed *(planned, not yet wired)*
+## 3. JSearch — live India feed *(LIVE)*
 
 | | |
 |---|---|
-| Provider | OpenWeb Ninja (`openwebninja.com`), also distributed via RapidAPI |
-| Terms | Reviewed 2026-10-02, document dated 2026-09-14 |
+| Provider | OpenWeb Ninja (`openwebninja.com`), subscribed **directly**, not via RapidAPI |
+| Terms | Reviewed 2026-10-02, document dated 2026-09-14; archived in `docs/legal/` |
 | Storing results in our DB | ✅ **Explicitly permitted** |
+| Ingested as | `source='jsearch'`, `market='IN'` |
+| First load | **583 postings**, 2026-10-02, for 16 requests |
+
+### Measured API behaviour (do not trust the docs over these)
+
+| | |
+|---|---|
+| Results per call | ~9.4 per page; `num_pages=5` → ~47 |
+| **Request cost** | **`ceil(num_pages / 5)`** — pages are NOT free |
+| Results per *request* | **flat at ~47** regardless of `num_pages`, so deeper pages buy nothing |
+| `job_description` | full text, median ~2,300–3,000 chars, no truncation |
+| `country=in` | reliable; `job_country` is `IN` or blank, never a wrong country |
+| Quota headers | **none** — hence `core/market/quota.py` |
+| Allowance | 200 per billing period, resetting on **the 2nd**, not the 1st |
+
+### ⚠️ `external_id` must be `job_uid`, never `job_id`
+
+`job_id` is ~402 characters and decodes to `<job_uid>:<rotating per-request token>`, so the
+same posting returns a **different `job_id` on every call**. Keying on it made two identical
+queries appear 100% disjoint, and would have re-inserted the entire corpus as new rows on
+every run — inflating counts, distorting every demand percentage, and preventing the
+already-held early-stop from ever firing. `job_uid` is the stable 24-char Google docid.
+Asserted by `tests/test_jsearch_mapping.py`.
+
+### Attribution and limits
 
 The provider's terms grant "a non-exclusive, non-transferable license to use,
 reproduce, and commercially exploit such API Data in your own products…
