@@ -32,6 +32,24 @@ class ResumeParseError(Exception):
     pass
 
 
+# A resume with less readable text than this almost certainly came out of a
+# scanner rather than a word processor. Single source of truth: the API layer
+# extracts PDF bytes itself (so it can enforce upload caps before parsing), so
+# it calls assert_has_text_layer() directly rather than duplicating the rule.
+MIN_TEXT_LAYER_CHARS = 50
+
+_NO_TEXT_LAYER_MSG = (
+    "PDF has no readable text layer (likely a scanned image). "
+    "Export the resume as a digital PDF from Word/LaTeX/Canva, or paste the text instead."
+)
+
+
+def assert_has_text_layer(text: str) -> None:
+    """Raise ResumeParseError if extracted text is too short to be a real resume."""
+    if len(text.strip()) < MIN_TEXT_LAYER_CHARS:
+        raise ResumeParseError(_NO_TEXT_LAYER_MSG)
+
+
 def extract_pdf_text(path: Path | str) -> str:
     path = Path(path)
     if not path.exists():
@@ -42,11 +60,7 @@ def extract_pdf_text(path: Path | str) -> str:
         raise ResumeParseError(f"Could not open PDF: {e}") from e
 
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    if len(text.strip()) < 50:
-        raise ResumeParseError(
-            "PDF has no readable text layer (likely a scanned image). "
-            "Export the resume as a digital PDF from Word/LaTeX/Canva."
-        )
+    assert_has_text_layer(text)
     return text
 
 

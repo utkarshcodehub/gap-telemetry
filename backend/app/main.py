@@ -1,33 +1,3 @@
-"""
-FastAPI layer — now with the security lockdown applied.
-
-What changed from the pre-auth version, and why:
-
-1. Auth. /analyze, /roadmap, and all /analyses routes now require a
-   verified Supabase bearer token (see app/deps.py). /health, /roles,
-   and /market/{role} stay public on purpose — they expose only
-   aggregate, non-personal market data, and a public landing page
-   should be able to show "500 postings analyzed" without forcing a
-   login first.
-
-2. CORS. No more allow_origins=["*"]. Origins come from settings
-   (CORS_ORIGINS env var), defaulting to the local Vite dev server only.
-
-3. Upload limits. PDFs are read in capped chunks (never buffer an
-   unbounded upload into memory) and checked for the %PDF magic bytes
-   before parsing — never trust a client-supplied Content-Type header.
-
-4. Rate limiting. /analyze and /roadmap are the expensive routes (PDF
-   parsing, an LLM call) — they get a tight per-client limit. Read-only
-   market endpoints get a looser default limit.
-
-5. Per-user saved analyses. A minimal persistence layer that exists
-   specifically to prove the isolation guarantee works: every query is
-   scoped to the authenticated user's id at the SQL layer (see
-   core/db/store.py). Covered by tests/test_auth.py, including the
-   canonical "user B cannot see user A's data" case.
-"""
-
 import io
 import json
 import sys
@@ -61,13 +31,13 @@ from core.db.store import AnalysesStore, JobStore
 from core.extraction.extractor import SkillExtractor
 from core.gap.scorer import score_gap
 from core.github_profile.fetcher import GitHubFetchError, fetch_github_profile
-from core.resume.parser import ResumeParseError, parse_resume_text
+from core.resume.parser import ResumeParseError, assert_has_text_layer, parse_resume_text
 from core.roadmap.generator import generate_roadmap
 
 settings = get_settings()
 
 app = FastAPI(
-    title="Job-Skill Gap Intelligence API",
+    title="Gap Telemetry",
     description="Market-aware skill gap analysis + LLM learning roadmaps",
     version="1.1.0",
 )
@@ -174,8 +144,10 @@ async def _resume_text_from_inputs(resume_file: UploadFile | None, resume_text: 
             text = "\n".join(p.extract_text() or "" for p in reader.pages)
         except Exception as e:
             raise HTTPException(422, f"Could not read PDF: {e}")
-        if len(text.strip()) < 50:
-            raise HTTPException(422, "PDF has no text layer (scanned image?). Export a digital PDF or paste resume text.")
+        try:
+            assert_has_text_layer(text)
+        except ResumeParseError as e:
+            raise HTTPException(422, str(e))
         return text
     raise HTTPException(422, "Provide resume_file (PDF) or resume_text.")
 
@@ -350,12 +322,15 @@ async def role_fit(
     resume_file: UploadFile | None = File(None),
     resume_text: str | None = Form(None),
     academic_marks: str | None = Form(None),
+    github_username: str | None = Form(None),
     user: AuthUser = Depends(get_current_user),
 ):
     """
     Compute the Role Fit match score for one candidate against one listing.
 
     academic_marks: comma-separated percentages, e.g. "94.6,84.3,78.5"
+    github_username: optional — GitHub-derived skills are merged into the
+      candidate's skill set, the same way /analyze does it.
     """
     # Find the listing
     listings = _load_mock_listings()
@@ -370,6 +345,21 @@ async def role_fit(
     except ResumeParseError as e:
         raise HTTPException(422, str(e))
 
+    # GitHub enrichment (optional, degrades gracefully)
+    github_skills: dict[str, int] = {}
+    github_status = "not_requested"
+    if github_username and github_username.strip():
+        try:
+            gh = fetch_github_profile(
+                github_username.strip(), EXTRACTOR, token=settings.github_token
+            )
+            github_skills = gh.skills
+            github_status = f"ok ({gh.repo_count} repos)"
+        except GitHubFetchError as e:
+            github_status = f"skipped: {e}"
+
+    candidate_skills = profile.skill_names | set(github_skills)
+
     # Parse listing
     listing = parse_listing(listing_dict, EXTRACTOR)
 
@@ -382,7 +372,7 @@ async def role_fit(
             raise HTTPException(422, "academic_marks must be comma-separated numbers, e.g. '94.6,84.3'")
 
     # Compute deterministic score
-    result = compute_match(listing, profile.skill_names, marks)
+    result = compute_match(listing, candidate_skills, marks)
 
     # Generate explanation (LLM or template fallback)
     explanation = explain_verdict(result, api_key=settings.groq_api_key)
@@ -401,7 +391,6 @@ async def role_fit(
         "academic_adjustment": result.academic_adjustment,
         "academic_marks_used": list(result.academic_marks_used),
         "resume_skills_found": sorted(profile.skill_names),
+        "github_status": github_status,
+        "github_skills_used": sorted(github_skills.keys()),
     }
-
-from app.role_fit_direct import register_role_fit_direct
-register_role_fit_direct(app, settings, limiter, EXTRACTOR)

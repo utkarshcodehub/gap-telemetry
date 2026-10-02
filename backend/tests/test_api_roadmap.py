@@ -152,6 +152,14 @@ def test_analyze_rejects_oversized_upload(client, auth_headers, monkeypatch):
 
 
 def test_roadmap_endpoint_template_fallback(client, auth_headers, monkeypatch):
+    # Patch the live settings object, NOT the env var: app/main.py builds
+    # `settings` once at import time, so delenv("GROQ_API_KEY") here would come
+    # too late and the route would make a real Groq call — which is exactly the
+    # bug this line fixes (the test silently exercised the LLM path instead of
+    # the fallback whenever a real key was present in backend/.env).
+    monkeypatch.setattr(main.settings, "groq_api_key", None)
+    # GroqRoadmapEngine also falls back to os.environ (generator.py), so close
+    # that door too — otherwise an exported shell key resurrects the LLM path.
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     r = client.post("/roadmap", json={
         "role": "ml", "resume_skills": ["Python"], "n_weeks": 4,
