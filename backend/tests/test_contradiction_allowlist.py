@@ -149,3 +149,25 @@ def test_every_allowlist_entry_explains_itself():
     for skill, rule in ABSENCE_ALLOWLIST.items():
         assert rule.expected_artifact, skill
         assert len(rule.rationale) > 40, f"{skill} needs a real rationale"
+
+
+def test_the_explanation_leads_with_the_legitimate_reason():
+    """Voice rule 1 (docs/PLAN.md section 9.6): a verdict touching someone's
+    integrity states the innocent explanation FIRST.
+
+    The most likely reason a claim lacks public evidence is that the work was
+    private or at an employer, not that it was invented. Leading with the finding
+    and burying the remedy reads as an accusation with a footnote.
+    """
+    msg = explain("Docker", repos_with_channel=23)
+    private_at = msg.lower().index("private")
+    finding_at = msg.lower().index("we looked")
+    assert private_at < finding_at, (
+        "the remedy must precede the finding, not trail it"
+    )
+    assert msg.lower().startswith("if your"), (
+        "must open on the candidate's legitimate position"
+    )
+    # And it must never assert dishonesty.
+    for word in ("lied", "lying", "false", "dishonest", "fake"):
+        assert word not in msg.lower()

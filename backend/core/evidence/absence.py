@@ -135,13 +135,22 @@ def absence_is_evidence(
 
 
 def explain(skill: str, repos_with_channel: int) -> str:
-    """Candidate-facing explanation. Never shown without the remedy."""
+    """Candidate-facing explanation.
+
+    ORDER IS DELIBERATE: the legitimate explanation comes first (voice rule 1,
+    docs/PLAN.md section 9.6). The most likely reason a claim lacks public
+    evidence is that the work was private or at an employer -- not that it was
+    invented. Leading with the finding and burying the remedy reads as an
+    accusation with a footnote; leading with the remedy reads as a prompt to add
+    evidence, which is what this verdict is actually for.
+    """
     rule = ABSENCE_ALLOWLIST.get(skill)
     if rule is None:
         return ""
     return (
-        f"{rule.rationale} We looked for {rule.expected_artifact} across "
-        f"{repos_with_channel} repositories. If this experience is from private "
-        f"or work code, mark it as private instead and it will be shown as "
-        f"attested rather than unsupported."
+        f"If your {skill} experience is from private or work code, mark it as "
+        f"private and it will show as attested rather than unsupported. "
+        f"Otherwise, adding it to a public project would make it verifiable. "
+        f"Why this came up: {rule.rationale} We looked for "
+        f"{rule.expected_artifact} across {repos_with_channel} repositories."
     )

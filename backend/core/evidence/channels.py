@@ -188,8 +188,16 @@ CHANNELS: dict[str, ChannelSpec] = {
     "Hugging Face": ChannelSpec(packages=("transformers", "huggingface-hub", "datasets",
                                           "accelerate")),
     "LangChain": ChannelSpec(packages=("langchain", "langchain-community", "langchain-openai")),
-    "Large Language Models": ChannelSpec(packages=("openai", "anthropic", "transformers",
-                                                   "litellm", "vllm", "ollama")),
+    # Provider SDKs matter as much as the aggregators here. Measured on a real
+    # profile: `groq` appeared in 12 manifests while langchain/openai appeared in
+    # none, so an LLM-heavy candidate read as UNVERIFIABLE purely because their
+    # provider was missing from this list. Calling a model API directly is the
+    # common pattern, not the exception.
+    "Large Language Models": ChannelSpec(packages=(
+        "openai", "anthropic", "groq", "google-generativeai", "google-genai",
+        "cohere", "mistralai", "together", "replicate", "transformers",
+        "litellm", "vllm", "ollama",
+    )),
     "MLOps": ChannelSpec(files=("dvc.yaml", "mlproject"),
                          packages=("mlflow", "wandb", "dvc", "bentoml", "kedro")),
     "Machine Learning": ChannelSpec(packages=("scikit-learn", "torch", "tensorflow", "xgboost",

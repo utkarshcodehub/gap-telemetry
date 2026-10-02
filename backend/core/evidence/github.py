@@ -49,7 +49,11 @@ API = "https://api.github.com"
 MAX_REPOS = 25
 #: Manifests fetched per repo. The tree tells us which exist; we only pay for the
 #: most informative few.
-MAX_MANIFESTS_PER_REPO = 2
+#: Ceiling on manifests per repo. With the signal-ranked ordering above, the
+#: first few fetches capture most of what a repo declares. The ACTUAL number
+#: is derived per repo from the remaining budget (_manifest_allowance), so a
+#: large profile degrades gracefully instead of breaching NFR-2.
+MAX_MANIFESTS_PER_REPO = 4
 #: Tree entries kept. Vendored directories are excluded first (EC-8), so this is
 #: a guard against a pathological repo rather than a normal limit.
 MAX_TREE_ENTRIES = 20_000
@@ -423,7 +427,11 @@ def collect_profile(
             # difference is the whole basis of the contradiction rule.
             partial = True
             break
-        snap = _snapshot_repo(client, username, repo, now=now)
+        remaining = len(owned[:max_repos]) - len(snapshots)
+        snap = _snapshot_repo(
+            client, username, repo, now=now,
+            manifest_allowance=_manifest_allowance(client, remaining),
+        )
         if not snap.tree_retrieved:
             # The repo whose fetch TRIPPED the limit would otherwise be kept with
             # an empty tree, which reads as "no evidence here" rather than "we
@@ -443,7 +451,8 @@ def collect_profile(
 
 
 def _snapshot_repo(client: Client, username: str, repo: dict,
-                   *, now: float | None = None) -> RepoSnapshot:
+                   *, now: float | None = None,
+                   manifest_allowance: int = MAX_MANIFESTS_PER_REPO) -> RepoSnapshot:
     full = repo.get("full_name") or f"{username}/{repo.get('name')}"
     branch = repo.get("default_branch") or "main"
 
@@ -458,7 +467,7 @@ def _snapshot_repo(client: Client, username: str, repo: dict,
 
     packages: set[str] = set()
     manifest_retrieved = False
-    for name in _manifests_in(paths)[:MAX_MANIFESTS_PER_REPO]:
+    for name in _manifests_in(paths)[:manifest_allowance]:
         text = client.get_text(f"{API}/repos/{full}/contents/{name}"
                                f"?ref={branch}")
         if text:
@@ -479,10 +488,65 @@ def _snapshot_repo(client: Client, username: str, repo: dict,
     )
 
 
+#: How informative each manifest is, lowest number read first. A Python
+#: requirements file or an npm package.json names dozens of libraries, so it
+#: resolves far more skills per request than a Gradle or Gemfile usually does.
+#: This ordering is why the per-repo cap can stay small: the first two or three
+#: fetches already capture most of what a repo declares.
+MANIFEST_SIGNAL_RANK = {
+    "requirements.txt": 0,
+    "package.json": 0,
+    "pyproject.toml": 1,
+    "pom.xml": 2,
+    "build.gradle": 2,
+    "go.mod": 2,
+    "cargo.toml": 2,
+    "composer.json": 3,
+    "gemfile": 3,
+    "pubspec.yaml": 3,
+}
+
+
 def _manifests_in(paths: list[str]) -> list[str]:
-    """Manifest paths found in the tree, shallowest first (root beats nested)."""
+    """Manifest paths worth fetching, most informative first.
+
+    Ordered by: root-level before nested (a repo's real dependency set lives at
+    the top, while a nested one is usually an example or a sub-package), then by
+    how many skills the file type typically declares, then by depth.
+
+    This replaced a plain shallowest-first sort, which would pick an arbitrary
+    pair in a monorepo and silently miss the file that actually mattered.
+    """
     found = [p for p in paths if Path(p).name.lower() in MANIFEST_FILES]
-    return sorted(found, key=lambda p: (p.count("/"), len(p)))
+
+    def key(p: str) -> tuple:
+        name = Path(p).name.lower()
+        depth = p.count("/")
+        return (0 if depth == 0 else 1,
+                MANIFEST_SIGNAL_RANK.get(name, 9),
+                depth,
+                len(p))
+
+    return sorted(found, key=key)
+
+
+def _manifest_allowance(client: Client, repos_remaining: int) -> int:
+    """How many manifests this repo may fetch, derived from the budget.
+
+    NFR-2 is a hard per-analysis cap, so the allowance shrinks as the budget does
+    rather than being a fixed number that happens to fit one profile size. Each
+    remaining repo also needs a tree and a contributors call, so those are
+    reserved before anything is spent on manifests.
+    """
+    budget = getattr(client, "budget", None)
+    if budget is None:
+        return MAX_MANIFESTS_PER_REPO
+    reserved = max(0, repos_remaining) * 2          # tree + contributors each
+    spare = budget.remaining - reserved
+    if spare <= 0:
+        return 0
+    per_repo = spare // max(1, repos_remaining)
+    return max(0, min(MAX_MANIFESTS_PER_REPO, per_repo))
 
 
 def _authorship_share(client: Client, full: str, username: str) -> float | None:
