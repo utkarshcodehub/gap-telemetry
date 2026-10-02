@@ -541,6 +541,24 @@ third adjudicates; construct a *fictional* person's resume mixing true skills wi
 deliberately planted false claims; record the known label per claim. Because the false
 claims are planted, precision and recall are computable without annotator noise.
 
+**PREREQUISITE before Dataset A is labelled: measure channel-map recall.**
+*Added 2026-10-02 from the first real profile.*
+
+Run the evidence collector over the candidate profiles, parse every fetched
+manifest, subtract the packages `core/evidence/channels.py` already knows, and
+rank what remains by how many manifests contain it. Fix the gaps that ranking
+exposes **before** labelling begins.
+
+Why this comes first. On the first real profile the map recognised 20 of 93
+declared packages, and one gap — `groq` in 12 manifests, with langchain/openai
+appearing in none — single-handedly made an LLM-heavy candidate read
+`UNVERIFIABLE` for Large Language Models. Had that profile been labelled first,
+the error would have entered Dataset A as ground truth, and every confidence
+constant tuned against it would have been **fitted to a hole in the map rather
+than to reality**. Collection effort is not the lever here: ranking manifests
+better and raising the per-repo cap changed nothing on that profile. Full
+measurement in `docs/baselines/manifest_coverage_2026-10-02.md`.
+
 **Dataset B — real pairs (N=40), external validity.** Real consenting resume + GitHub
 pairs from classmates and seniors, anonymised by script. Two annotators label each claim
 independently; **Cohen's κ** reported; disagreements adjudicated. *The consent form and

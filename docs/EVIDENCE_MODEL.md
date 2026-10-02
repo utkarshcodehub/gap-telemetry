@@ -392,6 +392,37 @@ unavoidable artifact at a conventional path.
 | Kubernetes | Manifests usually live in a separate infrastructure repo outside the profile. Fails (3). |
 | Python, TypeScript, Java | Already positively detected from language statistics; a contradiction adds nothing a reader cannot see. |
 
+**Fourth criterion: comparable public infrastructure work** *(tightened 2026-10-02)*
+
+Criterion (2) assumed "using Docker implies a committed Dockerfile". That holds
+for professional repositories. **It does not hold for the population this product
+serves.** Students meet Docker in a course, an internship, or an employer's
+private repo and never containerise a personal project. The first profile tested
+had 23 repos, zero Dockerfiles, and a genuine Docker claim — treating that as
+counter-evidence would mark an honest candidate CONTRADICTED on an assumption
+imported from a different population.
+
+So an allowlisted skill's absence now *also* requires the candidate to publish
+**comparable infrastructure work** — CI workflows, Terraform, Kubernetes
+manifests, deployment configs. The reasoning: if someone demonstrably publishes
+their infrastructure, its absence is informative; if they publish none, we have
+not established their infrastructure would be visible to us at all. Without that
+context the verdict is `UNVERIFIABLE / insufficient_artifacts`, which is the
+honest description of what we know.
+
+Deliberately strict, and a **candidate for loosening once Dataset A measures**
+how often it suppresses a true contradiction versus prevents a false one.
+
+**Open question for tuning** 🔶. On the first profile the gate *passed* — 5 of 23
+repos carry `.github/workflows/`, `render.yaml`, `vercel.json` or a `Procfile` —
+so Docker remained CONTRADICTED. But `render.yaml`, `vercel.json` and `Procfile`
+are **PaaS buildpack deploys, which are the mainstream alternative to
+containerising**. Someone deploying to Render has no reason to write a Dockerfile,
+so arguably that signal argues *against* the Docker inference rather than for it.
+Narrowing peer context to container-adjacent artifacts only is tempting but risks
+circularity (needing container evidence to judge missing container evidence).
+Left as stated pending Dataset A.
+
 **What a contradiction means to the candidate.** Not "you lied". It means *your
 public code does not support this claim, so add evidence or mark it private*. The
 attestation path (EA / FR-41) exists so a candidate whose real experience is at

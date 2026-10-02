@@ -38,7 +38,7 @@ from typing import Any, Protocol
 
 import requests
 
-from core.evidence.absence import absence_is_evidence
+from core.evidence.absence import absence_is_evidence, has_infrastructure_context
 from core.evidence.channels import CHANNELS, Channel, ChannelSpec
 from core.evidence.model import SkillEvidence, Tier
 
@@ -620,6 +620,11 @@ def _channel_retrieved_for(spec: ChannelSpec, repo: RepoSnapshot) -> bool:
 def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
     """Turn repo snapshots into one SkillEvidence per mapped skill."""
     in_scope = len(profile.repos)
+    # Does this candidate publish infrastructure work at all? If not, the absence
+    # of any one infrastructure artifact says nothing -- see core/evidence/absence.
+    infra_context = has_infrastructure_context(
+        p for r in profile.repos for p in r.tree_paths
+    )
 
     out: list[SkillEvidence] = []
     for skill, spec in CHANNELS.items():
@@ -668,6 +673,7 @@ def evidence_from_profile(profile: ProfileEvidence) -> list[SkillEvidence]:
             found=best is not None,
             repos_with_channel=retrieved_in,
             channel_coverage=channel_coverage,
+            has_infra_context=infra_context,
         )
 
         out.append(SkillEvidence(

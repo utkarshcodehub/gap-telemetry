@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 from core.evidence.absence import (
+    has_infrastructure_context,
     ABSENCE_ALLOWLIST,
     ABSENCE_MIN_CHANNEL_COVERAGE,
     ABSENCE_MIN_REPOS_WITH_CHANNEL,
@@ -25,7 +26,8 @@ from core.evidence.channels import CHANNELS, Channel
 from core.evidence.model import SkillEvidence, Verdict, verdict
 
 PLENTY = dict(coverage_value=1.0, authored_repo_count=20)
-AMPLE = dict(repos_with_channel=20, channel_coverage=1.0)
+AMPLE = dict(repos_with_channel=20, channel_coverage=1.0,
+             has_infra_context=True)
 
 
 # --------------------------------------------------------- the default is NO
@@ -171,3 +173,74 @@ def test_the_explanation_leads_with_the_legitimate_reason():
     # And it must never assert dishonesty.
     for word in ("lied", "lying", "false", "dishonest", "fake"):
         assert word not in msg.lower()
+
+
+# ------------------------------- peer context: comparable public infra work
+
+def test_absence_means_nothing_without_comparable_public_infrastructure():
+    """The tightening, decided 2026-10-02.
+
+    Criterion (2) assumed "using Docker implies a committed Dockerfile". True of
+    professional repositories; NOT true of the population this product serves.
+    Students meet Docker in a course, an internship or an employer's private repo
+    and never containerise a personal project -- the first real profile tested had
+    23 repos, zero Dockerfiles, and a genuine Docker claim.
+
+    So absence only counts where the candidate demonstrably publishes
+    infrastructure work. If they publish none, we have not established that their
+    infrastructure would be visible to us at all.
+    """
+    assert absence_is_evidence(
+        "Docker", found=False, repos_with_channel=20, channel_coverage=1.0,
+        has_infra_context=False,
+    ) is False
+
+    assert absence_is_evidence(
+        "Docker", found=False, repos_with_channel=20, channel_coverage=1.0,
+        has_infra_context=True,
+    ) is True
+
+
+def test_terraform_is_held_to_the_same_criterion():
+    assert absence_is_evidence(
+        "Terraform", found=False, repos_with_channel=20, channel_coverage=1.0,
+        has_infra_context=False,
+    ) is False
+    assert absence_is_evidence(
+        "Terraform", found=False, repos_with_channel=20, channel_coverage=1.0,
+        has_infra_context=True,
+    ) is True
+
+
+def test_every_allowlist_entry_requires_peer_context():
+    """If an entry is ever added without it, the protection silently lapses."""
+    for skill, rule in ABSENCE_ALLOWLIST.items():
+        assert rule.requires_infrastructure_context is True, skill
+
+
+@pytest.mark.parametrize("paths,expected", [
+    ([".github/workflows/ci.yml"], True),
+    (["infra/main.tf"], True),
+    (["k8s/deployment.yaml"], True),
+    (["Dockerfile"], True),
+    (["vercel.json"], True),
+    (["Procfile"], True),
+    (["nginx.conf"], True),
+    ([".gitlab-ci.yml"], True),
+    (["src/app.py", "README.md", "requirements.txt"], False),
+    ([], False),
+])
+def test_infrastructure_context_detection(paths, expected):
+    assert has_infrastructure_context(paths) is expected
+
+
+def test_a_pure_application_developer_is_never_contradicted():
+    """End to end on the shape of a typical student profile: lots of app code,
+    no published infrastructure, a Docker claim from coursework."""
+    app_only = ["src/main.py", "requirements.txt", "README.md",
+                "frontend/package.json", "tests/test_app.py"]
+    assert has_infrastructure_context(app_only) is False
+    assert absence_is_evidence(
+        "Docker", found=False, repos_with_channel=23, channel_coverage=1.0,
+        has_infra_context=has_infrastructure_context(app_only),
+    ) is False

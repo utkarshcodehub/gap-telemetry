@@ -31,6 +31,30 @@ Keyed by canonical skill name so it extends with Member C's induced taxonomy
 without waiting for it. `validate_against_taxonomy()` FAILS on any taxonomy skill
 missing an entry, which is what stops an expanded taxonomy silently losing
 verifiability for its new skills.
+
+LESSONS FROM THE FIRST REAL PROFILE (2026-10-02). Read these before extending the
+map; full measurement in docs/baselines/manifest_coverage_2026-10-02.md.
+
+1. LIST PROVIDER SDKs, NOT JUST AGGREGATORS. "Large Language Models" originally
+   listed openai/anthropic/transformers plus two runtimes. On a genuinely
+   LLM-heavy profile it read UNVERIFIABLE, because the candidate calls Groq's API
+   directly: `groq` appeared in 12 manifests while langchain, openai, anthropic
+   and transformers appeared in NONE. Calling a provider SDK directly is the
+   common pattern, not the exception. The same trap waits for any skill whose
+   ecosystem has many interchangeable vendors.
+
+2. MAP RECALL BEATS COLLECTION EFFORT. Ranking manifests better and raising the
+   per-repo cap changed nothing on that profile -- the cap was never the binding
+   constraint. The map was. Measure recall before optimising collection.
+
+3. NEVER MAP TRANSITIVE DEPENDENCIES. Of 93 packages declared across that
+   profile, 73 were unrecognised, and most were transitive (anyio, h11, idna,
+   typing_extensions, pydantic_core, starlette). Their presence says nothing
+   about a candidate. Only direct, intentional dependencies are evidence.
+
+4. METHOD FOR FINDING GAPS. Parse every fetched manifest, subtract the packages
+   this map already knows, and rank the remainder by how many manifests contain
+   it. One ranked list surfaced `groq` immediately.
 """
 
 from __future__ import annotations

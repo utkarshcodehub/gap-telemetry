@@ -36,6 +36,27 @@ code does not back this claim, so either add evidence or mark it as private work
 Docker experience lives at work has a truthful answer available. That is why the
 verdict is survivable -- and why it must stay rare.
 
+PEER CONTEXT -- the fourth criterion, added 2026-10-02 after the first real run.
+
+Criterion (2) assumed "using Docker implies a committed Dockerfile". That holds
+for professional repositories. It does NOT hold for the population this product
+actually serves. Students routinely meet Docker in a course, an internship or an
+employer's private repo and never containerise a personal project; the first real
+profile tested had 23 repos and zero Dockerfiles while the candidate claims Docker.
+Treating that as counter-evidence would mark an honest candidate CONTRADICTED on
+an assumption imported from a different population.
+
+So an allowlisted skill's absence now also requires COMPARABLE PUBLIC
+INFRASTRUCTURE WORK -- CI workflows, Terraform, deployment configs, Kubernetes
+manifests. The reasoning: if someone demonstrably publishes their infrastructure,
+then its absence is informative. If they publish none, we have not established
+that their infrastructure work would be visible to us at all, so absence says
+nothing. Without that context the verdict is UNVERIFIABLE /
+insufficient_artifacts, which is the honest description.
+
+This is deliberately strict and is a CANDIDATE FOR LOOSENING once Dataset A
+measures how often it suppresses a true contradiction versus prevents a false one.
+
 Thresholds are named constants, tuned later on Dataset A (EVIDENCE_MODEL section
 8.3), starting strict. A missed contradiction costs one absent insight; a false one
 tells an honest student they look like a liar.
@@ -56,6 +77,36 @@ ABSENCE_MIN_REPOS_WITH_CHANNEL = 8
 ABSENCE_MIN_CHANNEL_COVERAGE = 0.75
 
 
+#: Paths showing the candidate publishes infrastructure/ops work at all. The
+#: point is not what they prove individually -- it is that someone who commits
+#: CI pipelines, Terraform or deploy configs is someone whose infrastructure work
+#: is VISIBLE, which is the precondition for reading its absence as meaningful.
+INFRASTRUCTURE_CONTEXT_PATTERNS = (
+    ".github/workflows/", ".gitlab-ci.yml", "jenkinsfile", ".circleci/",
+    ".travis.yml", "azure-pipelines.yml",
+    ".tf", ".tfvars",
+    "chart.yaml", "kustomization.yaml", "k8s/", "kubernetes/", "helm/",
+    "dockerfile", "docker-compose", "compose.yaml", ".dockerignore",
+    "procfile", "vercel.json", "netlify.toml", "render.yaml", "fly.toml",
+    "app.yaml", "cloudbuild.yaml", "nginx.conf", "ansible.cfg",
+)
+
+
+def has_infrastructure_context(tree_paths) -> bool:
+    """Does this profile publish infrastructure work of ANY kind?"""
+    for path in tree_paths:
+        low = path.lower()
+        name = low.rsplit("/", 1)[-1]
+        for pat in INFRASTRUCTURE_CONTEXT_PATTERNS:
+            if pat.endswith("/") and pat in low:
+                return True
+            if pat.startswith(".") and (name == pat or low.endswith(pat)):
+                return True
+            if pat in name:
+                return True
+    return False
+
+
 @dataclass(frozen=True)
 class AbsenceRule:
     #: The artifact a user of this skill would almost certainly have committed.
@@ -63,6 +114,9 @@ class AbsenceRule:
     #: Why absence is informative here. Surfaced to the candidate, because an
     #: unexplained accusation is indefensible.
     rationale: str
+    #: When True, absence only counts if the candidate publishes COMPARABLE
+    #: infrastructure work. See the "peer context" note in the module docstring.
+    requires_infrastructure_context: bool = True
 
 
 #: THE ALLOWLIST. Two entries. Both are file-tree detectable, both have an
@@ -116,6 +170,7 @@ def absence_is_evidence(
     found: bool,
     repos_with_channel: int,
     channel_coverage: float | None,
+    has_infra_context: bool = False,
 ) -> bool:
     """Is this skill's absence strong enough to support CONTRADICTED?
 
@@ -130,6 +185,12 @@ def absence_is_evidence(
     if repos_with_channel < ABSENCE_MIN_REPOS_WITH_CHANNEL:
         return False
     if channel_coverage is None or channel_coverage < ABSENCE_MIN_CHANNEL_COVERAGE:
+        return False
+    rule = ABSENCE_ALLOWLIST[skill]
+    if rule.requires_infrastructure_context and not has_infra_context:
+        # The candidate publishes no infrastructure work at all, so we have no
+        # evidence their infrastructure work is public in the first place. See
+        # the peer-context note in the module docstring.
         return False
     return True
 
