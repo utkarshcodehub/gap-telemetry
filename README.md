@@ -7,7 +7,7 @@ limits, rate limiting, and per-user data isolation.
 
 ## Architecture
 ```
-postings (Naukri/synthetic) ─┐
+postings (synthetic today → real corpus) ─┐
                               ├─► SkillExtractor ─► demand aggregation ─┐
 resume PDF / GitHub ──────────┘        │                                ├─► gap score ─► Groq LLM roadmap ─► React dashboard
                                taxonomy (canonical skills + aliases) ───┘
@@ -20,7 +20,7 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
 - `core/taxonomy/` — 95+ canonical skills, ~300 aliases, collision-guarded loader
 - `core/extraction/extractor.py` — spaCy PhraseMatcher engine, token-boundary safe, longest-match-wins
 - `core/extraction/demand.py` — document-frequency demand aggregation
-- `scraper/naukri_scraper.py` — Naukri JSON-API scraper (rate-limited, idempotent — run locally)
+- `scraper/naukri_scraper.py` — Naukri JSON-API scraper. **Retired from the critical path** (undocumented API, rotating fingerprint headers); kept for reference
 - `scraper/synthetic_generator.py` — 500-posting probability-weighted fallback dataset
 - `core/db/store.py` — Supabase (Postgres): shared market tables + user-scoped `saved_analyses`, RLS-enforced
 - `core/resume/parser.py` — pypdf extraction + scanned-PDF detection
@@ -30,7 +30,7 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
 - `core/auth/verify.py` — Supabase JWT verification (JWKS prod / HS256 dev), see below
 - `app/settings.py`, `app/deps.py`, `app/main.py` — FastAPI: auth, CORS, upload limits, rate limiting
 - `frontend/` — React dashboard with Supabase login gate
-- `tests/` — 63 tests, real integration tests against the Supabase project
+- `tests/` — 94 tests, real integration tests against the Supabase project
   in `backend/.env` (a configured project incl. service-role key is
   required to run them — see below)
 
@@ -59,9 +59,10 @@ memory), checked for the `%PDF` magic bytes before parsing — the
 **Rate limiting.** `/analyze` and `/roadmap` (the expensive routes — PDF
 parsing, an LLM call) are limited via `slowapi`; defaults in `.env.example`.
 
-**What's still open, on purpose (see conversation notes):** the Naukri
-scraper hits an undocumented internal API — resolve the data-sourcing
-question before any commercial use.
+**The open problem.** Market demand is currently computed from
+*synthetic* postings with hand-chosen skill probabilities, so every demand
+percentage the UI shows describes an invented market. Replacing that with a
+real, citable corpus is the top priority — see `docs/PLAN.md`.
 
 ## Setting up Supabase Auth
 
@@ -84,30 +85,78 @@ curl -H "Authorization: Bearer $(python3 scripts/mint_dev_token.py)" http://127.
 
 ## Run
 
+### 1. Backend
+
 ```bash
-# Backend
 cd backend
 pip install -r requirements.txt
-python3 -m spacy download en_core_web_sm
-cp .env.example .env   # then edit — see "Setting up Supabase Auth" above
-# Tests hit the real Supabase project above (incl. writing/truncating
-# postings/skills/saved_analyses and two test auth users) — point .env
-# at a disposable dev project, not one with data you care about.
-python3 -m pytest tests/ -v      # 63 passed
-# From the repo root, or use the direct script path from backend/.
-python3 -m scraper.naukri_scraper --role "machine learning intern" --pages 25
-python3 ../scraper/synthetic_generator.py --count 500 --seed 42
-uvicorn app.main:app --reload    # http://127.0.0.1:8000/docs
+# No spaCy model download is needed — extraction uses spacy.blank("en")
+# deliberately (see "Key design decisions" #1).
 
-# Frontend (separate terminal)
-cd frontend
-npm install
-cp .env.example .env   # fill in your Supabase project values
-npm run dev             # http://localhost:5173
+cp .env.example .env   # then edit — see "Setting up Supabase Auth" above
 ```
 
+### 2. Apply the database schema — required, and easy to miss
+
+Nothing works against an empty project: `/health`, `/roles` and every analysis
+route will fail with opaque 500s if the tables don't exist. Apply both
+migrations, in order, to your Supabase project (SQL Editor, or `supabase db
+push` if you use the CLI):
+
+```
+backend/supabase/migrations/0001_core_schema.sql
+backend/supabase/migrations/0002_pin_function_search_path.sql
+```
+
+### 3. Seed market data
+
+```bash
+cd backend
+python3 ../scraper/synthetic_generator.py --count 500 --seed 42
+```
+
+> ⚠️ **This data is synthetic.** The skill probabilities in
+> `scraper/synthetic_generator.py` are hand-chosen, not measured, so demand
+> percentages derived from it describe an invented market, not a real one. It
+> exists so the app runs offline. Replacing it with a real, citable posting
+> corpus is the current priority — see `docs/PLAN.md` §6.
+>
+> `scraper/naukri_scraper.py` also exists but is **not** a supported path: it
+> hits an undocumented internal API whose fingerprint headers must be
+> hand-refreshed when they rotate. Kept for reference only.
+
+### 4. Run both halves
+
+```bash
+cd backend && uvicorn app.main:app --reload    # http://127.0.0.1:8000/docs
+```
+
+```bash
+cd frontend && npm install
+cp .env.example .env
+npm run dev                                     # http://localhost:5173
+```
+
+> **Two `.env` files, same project.** `backend/.env` needs `SUPABASE_URL`;
+> `frontend/.env` needs `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`. They
+> must point at the *same* Supabase project. If the frontend's values are
+> missing or wrong it does **not** fail at startup — it logs a console warning
+> and then login fails with an unhelpful error, so check the browser console
+> first if sign-in misbehaves.
+
+### Tests
+
+```bash
+cd backend && python3 -m pytest tests/ -q
+```
+
+> ⚠️ The suite runs against the **real** Supabase project in `backend/.env` and
+> **truncates `postings`** (plus `skills`, `posting_skills`, `saved_analyses`)
+> as part of its fixtures. Point `.env` at a disposable dev project, and
+> re-seed with step 3 afterwards or `/roles` will show only test fixture data.
+
 ## Full demo sequence
-1. Seed data (Naukri scraper or synthetic generator).
+1. Seed data (`synthetic_generator.py` — see the honesty caveat in Run step 3).
 2. Start the backend, then the frontend.
 3. Sign up / sign in on the login screen.
 4. Pick role, upload resume PDF, enter GitHub username → Run gap analysis.
