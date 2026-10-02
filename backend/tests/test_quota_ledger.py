@@ -18,7 +18,7 @@ from core.market.quota import QuotaExhausted, QuotaLedger
 
 @pytest.fixture
 def ledger(tmp_path):
-    return QuotaLedger(tmp_path / "quota.json", monthly_cap=10)
+    return QuotaLedger(tmp_path / "quota.json", monthly_cap=10, reset_day=2)
 
 
 def test_starts_empty(ledger):
@@ -57,28 +57,61 @@ def test_a_retry_loop_cannot_walk_past_the_cap(ledger):
     """
     granted = 0
     for _ in range(100):
-        fresh = QuotaLedger(ledger.path, monthly_cap=10)
+        fresh = QuotaLedger(ledger.path, monthly_cap=10, reset_day=2)
         try:
             fresh.spend(1)
             granted += 1
         except QuotaExhausted:
             pass
     assert granted == 10, f"loop obtained {granted} requests against a cap of 10"
-    assert QuotaLedger(ledger.path, monthly_cap=10).used() == 10
+    assert QuotaLedger(ledger.path, monthly_cap=10, reset_day=2).used() == 10
 
 
-def test_months_are_accounted_separately(ledger):
-    ledger.spend(10, month="2026-10")
-    assert ledger.remaining("2026-10") == 0
-    assert ledger.remaining("2026-11") == 10, "a new month starts fresh"
-    ledger.spend(4, month="2026-11")
-    assert ledger.used("2026-10") == 10
-    assert ledger.used("2026-11") == 4
+def test_periods_are_accounted_separately(ledger):
+    ledger.spend(10, period="2026-10-02")
+    assert ledger.remaining("2026-10-02") == 0
+    assert ledger.remaining("2026-11-02") == 10, "a new period starts fresh"
+    ledger.spend(4, period="2026-11-02")
+    assert ledger.used("2026-10-02") == 10
+    assert ledger.used("2026-11-02") == 4
 
 
-def test_month_key_is_utc_and_zero_padded():
-    assert QuotaLedger.month_key(datetime(2026, 3, 9, tzinfo=timezone.utc)) == "2026-03"
-    assert QuotaLedger.month_key(datetime(2026, 12, 31, tzinfo=timezone.utc)) == "2026-12"
+def test_period_key_anchors_to_the_reset_day_not_the_calendar_month(tmp_path):
+    """The bug a calendar-month key would cause.
+
+    The provider resets on the 2nd (observed: "resetting Nov 2, 2026"), so usage
+    on 1 November belongs to the period that began 2 October. A calendar key
+    would file it under November and hand out a second allowance a day early.
+    """
+    led = QuotaLedger(tmp_path / "q.json", monthly_cap=10, reset_day=2)
+    on = lambda y, m, d: led.period_key(datetime(y, m, d, tzinfo=timezone.utc))
+
+    assert on(2026, 10, 2) == "2026-10-02", "reset day starts a new period"
+    assert on(2026, 10, 31) == "2026-10-02"
+    assert on(2026, 11, 1) == "2026-10-02", "the day BEFORE reset is still the old period"
+    assert on(2026, 11, 2) == "2026-11-02", "and the reset day rolls it over"
+    # Year boundary.
+    assert on(2027, 1, 1) == "2026-12-02"
+    assert on(2027, 1, 2) == "2027-01-02"
+
+
+def test_reset_day_1_behaves_like_calendar_months(tmp_path):
+    led = QuotaLedger(tmp_path / "q.json", reset_day=1)
+    assert led.period_key(datetime(2026, 3, 9, tzinfo=timezone.utc)) == "2026-03-01"
+    assert led.period_key(datetime(2026, 12, 31, tzinfo=timezone.utc)) == "2026-12-01"
+
+
+def test_reset_day_beyond_28_is_rejected(tmp_path):
+    """A reset day of 29-31 would make a period disappear in February."""
+    for bad in (0, 29, 31, -1):
+        with pytest.raises(ValueError):
+            QuotaLedger(tmp_path / "q.json", reset_day=bad)
+
+
+def test_month_key_is_gone_and_fails_loudly(tmp_path):
+    led = QuotaLedger(tmp_path / "q.json", reset_day=2)
+    with pytest.raises(AttributeError, match="period_key"):
+        led.month_key()
 
 
 def test_a_corrupt_ledger_refuses_to_spend_rather_than_resetting(tmp_path):
@@ -89,7 +122,7 @@ def test_a_corrupt_ledger_refuses_to_spend_rather_than_resetting(tmp_path):
     """
     path = tmp_path / "quota.json"
     path.write_text("{not valid json", encoding="utf-8")
-    led = QuotaLedger(path, monthly_cap=10)
+    led = QuotaLedger(path, monthly_cap=10, reset_day=2)
     with pytest.raises(QuotaExhausted, match="unreadable"):
         led.spend(1)
 
@@ -106,7 +139,7 @@ def test_record_yield_never_affects_the_cap(ledger):
 def test_notes_are_recorded_for_auditing(ledger):
     ledger.spend(1, note="backend developer p1")
     data = json.loads(ledger.path.read_text(encoding="utf-8"))
-    runs = data["months"][QuotaLedger.month_key()]["runs"]
+    runs = data["periods"][ledger.period_key()]["runs"]
     assert len(runs) == 1
     assert runs[0]["note"] == "backend developer p1"
     assert runs[0]["spent"] == 1
@@ -123,4 +156,4 @@ def test_ledger_file_is_valid_json_after_many_writes(ledger):
     for _ in range(10):
         ledger.spend(1, note="x")
     data = json.loads(ledger.path.read_text(encoding="utf-8"))
-    assert data["months"][QuotaLedger.month_key()]["requests"] == 10
+    assert data["periods"][ledger.period_key()]["requests"] == 10

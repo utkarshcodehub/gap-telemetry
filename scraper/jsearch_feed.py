@@ -35,7 +35,12 @@ from core.market.jsearch import (  # noqa: E402
     fetch_page,
     polite_pause,
 )
-from core.market.quota import DEFAULT_MONTHLY_CAP, QuotaExhausted, QuotaLedger  # noqa: E402
+from core.market.quota import (  # noqa: E402
+    DEFAULT_MONTHLY_CAP,
+    DEFAULT_RESET_DAY,
+    QuotaExhausted,
+    QuotaLedger,
+)
 from core.taxonomy.roles import CANONICAL_ROLES, MIN_POSTINGS_PER_ROLE  # noqa: E402
 from ingest import ingest_postings  # noqa: E402
 
@@ -90,7 +95,7 @@ def existing_ids(store: JobStore) -> set[str]:
 
 def cmd_plan(ledger: QuotaLedger, store: JobStore) -> None:
     s = ledger.summary()
-    print(f"QUOTA  month={s['month']}  used={s['used']}/{s['cap']}  "
+    print(f"QUOTA  period={s['period']}  used={s['used']}/{s['cap']}  "
           f"remaining={s['remaining']}  (results so far: {s['results']}, "
           f"new rows: {s['new_rows']})")
     print()
@@ -211,12 +216,18 @@ def main() -> None:
     ap.add_argument("--num-pages", type=int, default=1,
                     help="pages per request; leave at 1 until the probe says "
                          "it is free")
-    ap.add_argument("--monthly-cap", type=int, default=DEFAULT_MONTHLY_CAP)
+    ap.add_argument("--monthly-cap", type=int, default=DEFAULT_MONTHLY_CAP,
+                    help="self-imposed cap below the provider's 200/period")
+    ap.add_argument("--reset-day", type=int, default=DEFAULT_RESET_DAY,
+                    help="day of month the provider resets the allowance; this "
+                         "account resets on the 2nd, NOT the 1st")
     args = ap.parse_args()
 
     settings = get_settings()
     api_key = settings.openwebninja_api_key
-    ledger = QuotaLedger(LEDGER_PATH, monthly_cap=args.monthly_cap)
+    ledger = QuotaLedger(
+        LEDGER_PATH, monthly_cap=args.monthly_cap, reset_day=args.reset_day
+    )
 
     if args.plan:
         store = JobStore()
