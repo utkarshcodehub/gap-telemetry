@@ -161,6 +161,23 @@ npm run dev                                     # http://localhost:5173
 > and then login fails with an unhelpful error, so check the browser console
 > first if sign-in misbehaves.
 
+### Before a demo: warm the GitHub cache
+
+```bash
+cd backend
+python scripts/prewarm_cache.py <github-username>   # warm both passes
+python scripts/prewarm_cache.py --check             # is it still usable?
+```
+
+An analysis with a GitHub username makes two API passes, and cold they cost ~15
+seconds and ~24 requests against a rate limit shared by every analysis. Warm, the
+same run costs about 1.3 seconds and nothing.
+
+**The cache expires after 24 hours**, so `--check` before you present; it exits
+non-zero when the cache is empty, stale, nearly stale, or has only one of the two
+passes warmed. The cache is per-machine (under gitignored `backend/data/`), so a
+demo from a different laptop starts cold regardless.
+
 ### Tests
 
 ```bash
