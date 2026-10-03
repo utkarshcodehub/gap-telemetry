@@ -25,6 +25,7 @@ from core.evidence.github import (
     parse_build_gradle,
     parse_package_json,
     parse_pom_xml,
+    parse_pyproject_toml,
     parse_requirements_txt,
 )
 from core.evidence.model import Tier
@@ -256,6 +257,90 @@ def test_package_json_includes_dev_dependencies():
     assert pkgs == {"react", "jest"}
 
 
+def test_pyproject_metadata_is_not_mistaken_for_dependencies():
+    """What the cohort measurement found. The old regex scraped every
+    `key = value` line, so `name`, `version` and `description` arrived looking
+    like packages -- 14 such pseudo-packages among the 60 most frequent
+    "unrecognised" names, inflating the denominator of the coverage metric."""
+    pkgs = parse_pyproject_toml("""
+[project]
+name = "gap-telemetry"
+version = "0.2.0"
+description = "a thing"
+requires-python = ">=3.11"
+dependencies = ["fastapi>=0.110", "pydantic", "httpx[http2]==0.27"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+""")
+    assert pkgs == {"fastapi", "pydantic", "httpx", "pytest"}, (
+        "build-system requires is excluded too: a build backend is the toolchain, "
+        "not a declared dependency of the project")
+
+
+def test_cargo_metadata_is_not_mistaken_for_dependencies():
+    """Cargo.toml goes through the same parser, and its profile tables were the
+    worst offenders: `edition`, `codegen-units`, `lto`, `harness`."""
+    pkgs = parse_pyproject_toml("""
+[package]
+name = "solver"
+version = "0.1.0"
+edition = "2021"
+repository = "https://example.invalid/solver"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+clap = "4"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+
+[[bench]]
+harness = false
+""")
+    assert pkgs == {"serde", "clap", "criterion"}
+
+
+def test_poetry_dependencies_are_found_and_the_python_pin_is_not_one():
+    pkgs = parse_pyproject_toml("""
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "^5.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.0"
+""")
+    assert pkgs == {"django", "black"}, "a language version pin is not a dependency"
+
+
+def test_unparseable_toml_falls_back_rather_than_losing_the_file():
+    """Degrade, never drop. A truncated manifest should still yield what it can,
+    noise included -- the alternative is reading a real dependency set as empty,
+    which is exactly the absence the contradiction rule must never invent."""
+    pkgs = parse_pyproject_toml('[project]\ndependencies = ["fastapi>=0.1"\n')
+    assert "fastapi" in pkgs
+
+
+def test_composer_platform_requirements_are_not_packages():
+    """`php` arrived as a "package" declared in three repos. composer keeps the
+    runtime constraint in the same table as real dependencies."""
+    from core.evidence.github import parse_composer_json
+    pkgs = parse_composer_json("""
+    {"require": {"php": "^8.1", "ext-mbstring": "*", "laravel/framework": "^11.0"},
+     "require-dev": {"phpunit/phpunit": "^11.0"}}
+    """)
+    assert pkgs == {"framework", "phpunit"}
+
+
 def test_malformed_manifests_return_nothing_rather_than_raising():
     assert parse_package_json("{not json") == set()
     assert parse_pom_xml("") == set()
@@ -310,3 +395,98 @@ def test_rate_limited_client_stops_spending_budget():
     before = client.budget.spent
     client.get_json("https://api.github.com/anything")
     assert client.budget.spent == before, "short-circuited, no budget spent"
+
+
+# ------------------------------------------------- empty repositories (409)
+
+class EmptyRepoClient(FixtureClient):
+    """Serves the fixtures, but reports one repo as having no commits.
+
+    GitHub answers 409 Conflict for a repository with no commits. The real client
+    records that URL as a definitive miss; this reproduces that contract without
+    the network.
+    """
+
+    def __init__(self, empty_repo: str):
+        super().__init__()
+        self.empty_repo = empty_repo
+        self.definitive_misses: set[str] = set()
+
+    def get_json(self, url: str):
+        if f"/{self.empty_repo}/git/trees/" in url:
+            self.urls.append(url)
+            self.budget.take()
+            self.definitive_misses.add(url)
+            return None
+        return super().get_json(url)
+
+
+def _repo_names() -> list[str]:
+    repos = json.loads((FIX / "repos.json").read_text(encoding="utf-8"))
+    return [r["name"] for r in repos if not r.get("fork")]
+
+
+def test_an_empty_repo_is_skipped_without_losing_the_rest_of_the_profile():
+    """The defect the cohort measurement exposed, and the costliest kind.
+
+    A 409 used to escape as an HTTPError, so a candidate who had once created a
+    repo and never pushed to it lost EVERY verification they had -- five of
+    eighteen sampled profiles collected nothing for this reason. An empty repo is
+    one of the most common things on GitHub.
+    """
+    first = _repo_names()[0]
+    client = EmptyRepoClient(first)
+    p = collect_profile(client, "testuser", now=NOW)
+
+    assert first not in {r.name for r in p.repos}, "the empty repo is skipped"
+    assert len(p.repos) == len(_repo_names()) - 1, "every other repo still collected"
+    assert p.partial is False, (
+        "nothing went wrong, so the profile is complete -- marking it partial "
+        "would suppress CONTRADICTED for a candidate we fully examined")
+
+
+def test_an_empty_repo_costs_no_contributors_request():
+    """No commits means no contributors to ask about."""
+    client = EmptyRepoClient(_repo_names()[0])
+    collect_profile(client, "testuser", now=NOW)
+    assert not any(f"/{client.empty_repo}/contributors" in u for u in client.urls)
+
+
+def test_a_failed_tree_fetch_still_stops_collection():
+    """The counterpart. 'Nothing there' is a fact; 'we could not look' is not, and
+    only the second one may truncate a profile."""
+    class FailingClient(FixtureClient):
+        def get_json(self, url: str):
+            if "/git/trees/" in url:
+                self.urls.append(url)
+                self.budget.take()
+                return None          # no definitive_misses: an unexplained miss
+            return super().get_json(url)
+
+    p = collect_profile(FailingClient(), "testuser", now=NOW)
+    assert p.repos == ()
+    assert p.partial is True
+
+
+class _Resp:
+    def __init__(self, status: int):
+        self.status_code = status
+        self.text = ""
+
+    def json(self):
+        return {}
+
+    def raise_for_status(self):
+        raise AssertionError(f"{self.status_code} should have been handled")
+
+
+def test_the_real_client_treats_409_as_an_answer_not_a_failure():
+    from core.evidence.github import GitHubClient
+
+    client = GitHubClient(budget=RequestBudget(limit=5))
+    client._sess = type("S", (), {"get": lambda self, url, **kw: _Resp(409)})()
+
+    assert client.get_json("https://api.github.com/x/git/trees/main") is None
+    assert "https://api.github.com/x/git/trees/main" in client.definitive_misses
+    assert client.partial is False, "an empty repo does not make a profile partial"
+    assert client.rate_limited is False

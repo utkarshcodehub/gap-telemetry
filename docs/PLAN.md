@@ -542,7 +542,33 @@ deliberately planted false claims; record the known label per claim. Because the
 claims are planted, precision and recall are computable without annotator noise.
 
 **PREREQUISITE before Dataset A is labelled: measure channel-map recall.**
-*Added 2026-10-02 from the first real profile.*
+*Added 2026-10-02 from the first real profile.* **SATISFIED 2026-10-03** — full
+measurement in `docs/baselines/channel_recall_2026-10-03.md`, reproducible with
+`python scripts/measure_channel_recall.py --frame population|dense`.
+
+> **Outcome: the channel map is no longer the binding constraint; the taxonomy is.**
+> Measured over 48 real profiles in two sampling frames (488 repos, 1,704 declared
+> dependencies), map recall on the judged head is 100% in both — no miss remains
+> that the map could fix. Every surviving blind spot needs a taxonomy entry that
+> does not exist (Authentication, Pydantic, Vite, Streamlit, Kotlin, Jupyter, Zod,
+> Prisma) or a conflation undone (`Web Scraping` is currently an **alias of
+> Selenium**, so mapping `beautifulsoup4` would have produced a false
+> verification). Handed to lane C; see `docs/HANDOFF_LANE_C.md`.
+>
+> **Two conditions on labelling.** (1) Screen candidate profiles for manifests —
+> only 26% of this population's repos contain one, so a profile without any
+> exercises one channel of three. (2) Do not label claims for the skills in that
+> lane C list: they are unverifiable for reasons that have nothing to do with the
+> candidate, and recording them as ground truth would repeat this prerequisite's
+> own mistake one level up.
+>
+> It also found a defect invisible at n=1: GitHub answers **409** for a repository
+> with no commits, which escaped as an exception and made `/analyze` fall back to no
+> evidence at all — **five of the first eighteen profiles verified nothing** because
+> the candidate had once created a repo and never pushed to it. And it found that
+> `parse_pyproject_toml` was reporting TOML metadata keys (`name`, `version`,
+> `edition`) as declared packages, which made channel coverage read 16 points worse
+> than it was.
 
 Run the evidence collector over the candidate profiles, parse every fetched
 manifest, subtract the packages `core/evidence/channels.py` already knows, and

@@ -55,6 +55,45 @@ map; full measurement in docs/baselines/manifest_coverage_2026-10-02.md.
 4. METHOD FOR FINDING GAPS. Parse every fetched manifest, subtract the packages
    this map already knows, and rank the remainder by how many manifests contain
    it. One ranked list surfaced `groq` immediately.
+
+LESSONS FROM 48 PROFILES (2026-10-03). The n=1 measurement above was confirmed and
+sharpened by a cohort; full result in docs/baselines/channel_recall_2026-10-03.md,
+reproducible with `python scripts/measure_channel_recall.py`.
+
+5. WHEN TO ADD A PACKAGE. Add it when it is UNAMBIGUOUS for its skill, even if
+   another channel already fires -- a manifest hit raises the tier from E2 PRESENT
+   to E3 DECLARED, so it changes confidence rather than only a coverage
+   percentage. Do NOT chase the tail of rare packages to move the metric.
+   `prisma` is deliberately absent: it also drives MongoDB, so mapping it under SQL
+   would make E3 mean less than it says.
+
+6. MEASURE THE RIGHT MISS. A package this map misses costs nothing when a sibling
+   signal in the same repo already proves the skill (`lucide-react` next to
+   `react`). The misses that matter are the ones where the unmapped package was the
+   skill's ONLY signal in that repo -- those are the only ones that can change a
+   verdict, and the measurement reports them separately.
+
+7. SOME GAPS ARE NOT THIS FILE'S TO CLOSE, AND CLOSING THEM WOULD BE A FALSE
+   VERIFICATION. Three kinds, all found by trying the fix and looking at what it
+   would have claimed:
+     - the taxonomy CONFLATES the skill with another ("Web Scraping" is an alias of
+       Selenium, so `beautifulsoup4` would have evidenced Selenium for someone who
+       never used a browser driver);
+     - the only fitting entry is unverifiable by design (`bcrypt` -> Cybersecurity,
+       EC-9), and attaching packages there would quietly make a concept checkable;
+     - the skill simply is not in the taxonomy (Kotlin, Vite, Streamlit, Pydantic).
+   All three belong to lane C's FR-18. Verifying the wrong skill is worse than
+   verifying none.
+
+8. THE DENSE AND POPULATION FRAMES ARE DIFFERENT ECOSYSTEMS. Newest accounts with
+   10+ repos are web; visibly active accounts -- who Dataset A will be drawn from --
+   are substantially Android, Kotlin and React Native, which this map had no package
+   channel for at all. A map tuned only on web profiles is tuned on the wrong people.
+
+9. ONLY 26% OF THAT POPULATION'S REPOS CONTAIN A PARSEABLE MANIFEST. For most
+   candidates the MANIFEST channel does not exist, so E2 PRESENT is the working
+   ceiling and FILE_TREE plus LANGUAGE carry everything. Confidence constants must
+   not assume E3 is reachable.
 """
 
 from __future__ import annotations
@@ -114,26 +153,36 @@ CHANNELS: dict[str, ChannelSpec] = {
                        files=("cmakelists.txt",)),
     "Go": ChannelSpec(languages=("Go",), extensions=(".go",), files=("go.mod", "go.sum")),
     "Java": ChannelSpec(languages=("Java",), extensions=(".java",),
-                        files=("pom.xml", "build.gradle", "build.gradle.kts")),
+                        files=("pom.xml", "build.gradle", "build.gradle.kts"),
+                        packages=("gson", "retrofit")),
     "JavaScript": ChannelSpec(languages=("JavaScript",), extensions=(".js", ".mjs", ".cjs")),
     "Python": ChannelSpec(languages=("Python",), extensions=(".py",),
                           files=("requirements.txt", "pyproject.toml", "setup.py", "pipfile")),
     "R": ChannelSpec(languages=("R",), extensions=(".r", ".rmd"), files=("description",)),
-    "Rust": ChannelSpec(languages=("Rust",), extensions=(".rs",), files=("cargo.toml",)),
-    "SQL": ChannelSpec(languages=("SQL", "PLpgSQL", "TSQL"), extensions=(".sql",)),
+    "Rust": ChannelSpec(languages=("Rust",), extensions=(".rs",), files=("cargo.toml",),
+                        packages=("serde", "serde_json", "tokio", "clap", "anyhow",
+                                  "rayon", "thiserror", "tracing",
+                                  "tracing-subscriber")),
+    "SQL": ChannelSpec(languages=("SQL", "PLpgSQL", "TSQL"), extensions=(".sql",),
+                       packages=("sqlalchemy", "flask-sqlalchemy", "alembic", "knex",
+                                 "sequelize", "typeorm")),
     "TypeScript": ChannelSpec(languages=("TypeScript",), extensions=(".ts", ".tsx"),
-                              files=("tsconfig.json",)),
+                              files=("tsconfig.json",),
+                              packages=("typescript", "ts-node", "tsx")),
 
     # ------------------------------------------------------------------ frontend
     "Angular": ChannelSpec(files=("angular.json",), packages=("@angular/core", "@angular/cli")),
     "CSS": ChannelSpec(languages=("CSS", "SCSS", "Less"), extensions=(".css", ".scss", ".sass")),
     "HTML": ChannelSpec(languages=("HTML",), extensions=(".html", ".htm")),
     "Next.js": ChannelSpec(files=("next.config.js", "next.config.mjs", "next.config.ts"),
-                           packages=("next",)),
-    "React": ChannelSpec(packages=("react", "react-dom")),
+                           packages=("next", "eslint-config-next")),
+    "React": ChannelSpec(packages=("react", "react-dom", "react-router-dom",
+                                   "@vitejs/plugin-react", "lucide-react",
+                                   "react-icons", "framer-motion",
+                                   "react-scripts")),
     "Redux": ChannelSpec(packages=("redux", "@reduxjs/toolkit", "react-redux")),
     "Tailwind CSS": ChannelSpec(files=("tailwind.config.js", "tailwind.config.ts"),
-                                packages=("tailwindcss",)),
+                                packages=("tailwindcss", "tailwind-merge")),
     "Vue.js": ChannelSpec(languages=("Vue",), extensions=(".vue",), packages=("vue",)),
 
     # ------------------------------------------------------------------- backend
@@ -174,7 +223,9 @@ CHANNELS: dict[str, ChannelSpec] = {
     # ------------------------------------------------------------------ database
     "Elasticsearch": ChannelSpec(packages=("elasticsearch", "@elastic/elasticsearch")),
     "Firebase": ChannelSpec(files=("firebase.json", "firestore.rules"),
-                            packages=("firebase", "firebase-admin")),
+                            packages=("firebase", "firebase-admin", "google-services",
+                                      "firebase-database", "firebase-auth",
+                                      "firebase-firestore")),
     "MongoDB": ChannelSpec(packages=("pymongo", "mongoose", "mongodb", "motor")),
     "MySQL": ChannelSpec(packages=("mysqlclient", "mysql2", "pymysql", "mysql-connector-python")),
     "PostgreSQL": ChannelSpec(packages=("psycopg2", "psycopg2-binary", "psycopg", "pg", "asyncpg")),
@@ -241,10 +292,21 @@ CHANNELS: dict[str, ChannelSpec] = {
     # -------------------------------------------------------------------- mobile
     "Android Development": ChannelSpec(languages=("Kotlin",),
                                        files=("androidmanifest.xml", "build.gradle.kts"),
-                                       path_contains=("app/src/main/",)),
+                                       path_contains=("app/src/main/",),
+                                       packages=("appcompat", "appcompat-v7",
+                                                 "recyclerview", "cardview",
+                                                 "constraintlayout", "core-ktx",
+                                                 "espresso-core", "material",
+                                                 "lifecycle-runtime-ktx",
+                                                 "activity-compose", "gradle")),
     "Flutter": ChannelSpec(languages=("Dart",), files=("pubspec.yaml",), extensions=(".dart",)),
     "React Native": ChannelSpec(files=("metro.config.js", "app.json"),
-                                packages=("react-native", "expo")),
+                                packages=("react-native", "expo",
+                                          "react-native-screens",
+                                          "react-native-safe-area-context",
+                                          "react-native-gesture-handler",
+                                          "metro-react-native-babel-preset",
+                                          "android-jsc", "android-jsc-intl")),
 
     # ------------------------------------------------------------- cs_fundamentals
     "Computer Networks": _concept(_CONCEPT),
@@ -265,7 +327,9 @@ CHANNELS: dict[str, ChannelSpec] = {
     # ------------------------------------------------------------------ emerging
     "Blockchain": ChannelSpec(languages=("Solidity",), extensions=(".sol",),
                               files=("hardhat.config.js", "truffle-config.js"),
-                              packages=("web3", "ethers", "hardhat")),
+                              packages=("web3", "ethers", "hardhat",
+                                        "@openzeppelin/contracts",
+                                        "@nomicfoundation/hardhat-toolbox")),
     "Cybersecurity": _concept("a domain, not a declarable artifact; concrete tools would "
                                "need their own taxonomy entries"),
     "IoT": _concept("a domain spanning hardware and firmware that a repository tree "

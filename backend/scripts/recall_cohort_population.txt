@@ -1,0 +1,34 @@
+# Frozen cohort for the channel-map recall measurement.
+# Sampling frame: see sample_cohort() in measure_channel_recall.py.
+rohitkumar-ds
+hrishikeshsde
+Kstariya2
+preetiraj31
+iamaaraven
+webmekk-agency
+smbashadev
+gokulmcodes
+rawalsinghpsnl
+sreelatha-ASKW
+gouravrawat-1
+goldargopal0-prog
+alonewarrior-debug
+akkusahuak53
+Rivoryxa-Technologies
+gunjankr-ai
+Drashti0912
+jaymehta2205
+mortoja-data-analyst
+maazeem786
+rohanshah-31
+anishadogra
+mrahmanmdsf
+rishxbd
+shreedhar-db
+TSravanthi-git
+TechRimagupta
+aartibhosale888-cell
+mohammedazimpatel05-dot
+dev-aditya-wiz
+Nikhil-jais
+shailendra-codes

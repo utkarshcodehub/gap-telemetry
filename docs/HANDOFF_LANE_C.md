@@ -18,22 +18,59 @@ canonical name, so it has no channel entry, so **no amount of evidence can ever
 verify it**. It is invisible end to end: not extracted from the resume, not
 counted in demand, not verifiable from code.
 
-Measured on one real profile (23 repos, 36 manifests, 93 distinct packages):
+**UPDATED 2026-10-03.** The original n=1 list of two skills is now a measured list
+of nine, from **48 real profiles** across two sampling frames — 488 repos, 1,704
+declared dependencies. Full method and result:
+`docs/baselines/channel_recall_2026-10-03.md`, reproducible with
+`cd backend && python scripts/measure_channel_recall.py --frame population|dense`.
 
-| Missing skill | Manifests | Why it matters |
-|---|---|---|
-| **`streamlit`** | 8 | A mainstream Python app framework. Students build and ship with it constantly, and it is a genuine, claimable skill. |
-| **`vite`** | 12 | The default modern front-end build tool. Present in essentially every recent React or Vue project. |
+**This list is now the binding constraint on verification recall.** After lane A's
+fixes, map recall on the judged head is **100% in both frames** — there is no
+remaining miss the channel map can fix. Everything below needs the taxonomy.
 
-Both are *directly declared* dependencies — intentional choices, not transitive
-noise. Adding them to the taxonomy is a precondition for the evidence engine
-doing anything with them; once added, lane A supplies the channel entries.
+| Missing skill | Declarations | Packages seen | Note |
+|---|---|---|---|
+| **Authentication** | 20 | `bcrypt`, `bcryptjs`, `jsonwebtoken`, `pyjwt`, `passlib` | The largest gap. `Cybersecurity` cannot host it — `channels.py` marks that entry unverifiable by design (EC-9), "a domain, not a declarable artifact". |
+| **Pydantic** | 15 | `pydantic`, `pydantic-settings` | |
+| **Vite** | 14 | `vite` | The default modern front-end build tool. |
+| **Streamlit** | 10 | `streamlit` | A mainstream Python app framework students ship with constantly. |
+| **Kotlin** | 8 | `kotlin-gradle-plugin`, `kotlin-stdlib`, `kotlin-stdlib-jdk7` | See C-4 — this one is also a conflation. |
+| **Web Scraping** | 5 | `beautifulsoup4` | See C-4. **Do this one first.** |
+| **Jupyter** | 4 | `jupyter`, `notebook` | FR-3 already treats `*.ipynb` as a file signal, so the channel is half-built. |
+| **Zod** | 4 | `zod` | |
+| **Prisma** | 3 | `prisma`, `@prisma/client` | Deliberately not mapped under SQL by lane A: Prisma also drives MongoDB, so it is ambiguous. |
 
-**Request:** include both in the induced taxonomy, and treat "appears as a direct
+All are *directly declared* dependencies — intentional choices, not transitive
+noise. Once a canonical entry exists, lane A supplies the channel entry.
+
+**Request:** include all nine in the induced taxonomy, and treat "appears as a direct
 dependency in many manifests" as a strong induction signal generally — it is
 evidence of real use, unlike a term's frequency in job-posting prose.
 
-## C-2 · `C` reports 21% demand — suspected extraction false positive
+## C-4 · Two taxonomy entries are *wrong*, not missing — and one can produce a false verification
+
+**Impact: highest in this document. A missing skill under-reports; a conflated one
+can verify a skill the candidate never used.**
+
+1. **`Web Scraping` is an alias of `Selenium`.** `canonicalize("Web Scraping")`
+   returns `"Selenium"`. Lane A was about to map `beautifulsoup4` (5 repos, 4
+   profiles) to the skill it names, which would have evidenced **Selenium** for
+   candidates who have never touched a browser driver. The two are different
+   skills: scraping with a parser is not driving a browser. **Split them.**
+
+2. **The Kotlin language is treated as evidence of `Android Development`.**
+   `channels.py` lists `languages=("Kotlin",)` under Android Development because
+   Kotlin has no entry of its own. Kotlin is also a server-side language, so a
+   Kotlin backend currently evidences Android development. Add `Kotlin`, then lane
+   A will narrow the Android spec.
+
+The general lesson for the induced taxonomy: an alias that merges two genuinely
+distinct skills is worse than a missing skill, because the evidence engine will
+confidently attribute one to the other. The measurement script now checks for this
+(`classify()` rejects a target whose `canonicalize()` returns a *different*
+canonical) and `backend/tests/test_channel_recall.py` pins the behaviour.
+
+## C-5 · `C` reports 21% demand — suspected extraction false positive
 
 *(Carried from the earlier finding, repeated here so lane C has one list.)*
 
@@ -49,7 +86,7 @@ matcher, and `R` has the same shape. Over-matching inflates their own demand
 **Check `C` and `R` against the raw `extract_text` of the postings that matched,
 before any taxonomy expansion** — expanding on top of a precision bug bakes it in.
 
-## C-3 · Skills in the job TITLE are never extracted
+## C-6 · Skills in the job TITLE are never extracted
 
 Extraction runs on the description only; the title is used for `role_query` then
 discarded as a skill source. A posting titled **"JavaScript Frontend Developer"**

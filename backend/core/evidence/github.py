@@ -36,6 +36,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol
 
+try:
+    import tomllib
+except ModuleNotFoundError:          # pragma: no cover - Python < 3.11
+    tomllib = None                   # type: ignore[assignment]
+
 import requests
 
 from core.evidence.absence import absence_is_evidence, has_infrastructure_context
@@ -123,6 +128,10 @@ class GitHubClient:
     #: Transient network failures that were absorbed. Non-empty means the
     #: profile is partial, so absence is not evidence.
     transport_errors: list[str] = field(default_factory=list)
+    #: URLs GitHub answered DEFINITIVELY -- 404 (no such file) or 409 (the
+    #: repository has no commits). These are facts, not failures: nothing exists
+    #: to retrieve, so they must not be mistaken for a collection problem.
+    definitive_misses: set[str] = field(default_factory=set)
     _partial: bool = False
     _sess: Any = None
 
@@ -222,7 +231,14 @@ class GitHubClient:
             self.token_rejected = True
             resp = requests.get(url, headers=self._headers(raw), timeout=30)
 
-        if resp.status_code == 404:
+        if resp.status_code in (404, 409):
+            # 404: no such file. 409: "Git Repository is empty" -- the repo exists
+            # but has no commits. Both are answers, not failures, so neither makes
+            # the profile partial. 409 used to escape as an HTTPError and abort the
+            # whole profile: a candidate who had once created a repo and never
+            # pushed to it lost every verification they had. Empty repos are
+            # extremely common, which is exactly why this has to be a fact.
+            self.definitive_misses.add(url)
             self._store(url, None)
             return None
         if resp.status_code in (403, 429):
@@ -275,6 +291,10 @@ class RepoSnapshot:
     #: True when the tree was retrieved; absence only means something if so.
     tree_retrieved: bool
     manifest_retrieved: bool
+    #: True when GitHub said definitively that there is no tree -- the repository
+    #: has no commits. Distinct from `not tree_retrieved`, which also covers "we
+    #: failed to look". An empty repo is skipped; a failure stops collection.
+    tree_absent: bool = False
 
 
 @dataclass(frozen=True)
@@ -330,15 +350,81 @@ def parse_requirements_txt(text: str) -> set[str]:
     return out
 
 
-def parse_pyproject_toml(text: str) -> set[str]:
-    # Regex rather than a TOML parser: we only need dependency NAMES, and this
-    # avoids depending on parser availability across Python versions.
+def _requirement_name(spec: str) -> str:
+    """'fastapi[all]>=0.110' -> 'fastapi'."""
+    return re.split(r"[\[<>=!~;\s]", spec, 1)[0].strip().lower()
+
+
+def _toml_by_regex(text: str) -> set[str]:
+    """Last-resort scrape for TOML that will not parse.
+
+    Kept only as a fallback: it cannot tell a dependency from a metadata field, so
+    it returns `name`, `version`, `edition` and friends as if they were packages.
+    """
     out = set()
     for m in re.finditer(r'^\s*"?([A-Za-z0-9][A-Za-z0-9._-]+)"?\s*[=,\]]', text, re.M):
         out.add(m.group(1).lower())
     for m in re.finditer(r'["\']([A-Za-z0-9][A-Za-z0-9._-]+)\s*[<>=~!]', text):
         out.add(m.group(1).lower())
     return out
+
+
+def parse_pyproject_toml(text: str) -> set[str]:
+    """Declared dependencies from a pyproject.toml or Cargo.toml.
+
+    Section-aware, because the regex version was not: it scraped every
+    `key = value` line, so `name`, `version`, `description`, `edition` and
+    `codegen-units` all arrived looking like packages. The cohort measurement
+    found 14 such pseudo-packages among the 60 most frequent "unrecognised"
+    names. They could never cause a false verification -- no channel lists a
+    package called `version` -- but they inflated the denominator, so channel-map
+    coverage read considerably worse than it actually was. A metric that is wrong
+    in the flattering direction would be worse; this one was wrong in the
+    direction that invites pointless map work.
+    """
+    if tomllib is None:                       # pragma: no cover - Python < 3.11
+        return _toml_by_regex(text)
+    try:
+        data = tomllib.loads(text)
+    except Exception:                         # noqa: BLE001 - malformed TOML
+        return _toml_by_regex(text)
+
+    out: set[str] = set()
+
+    def add_list(items) -> None:
+        for item in items or []:
+            if isinstance(item, str):
+                out.add(_requirement_name(item))
+
+    def add_table(table) -> None:
+        if isinstance(table, dict):
+            out.update(k.lower() for k in table)
+        else:
+            add_list(table)
+
+    # PEP 621
+    project = data.get("project") or {}
+    add_list(project.get("dependencies"))
+    for group in (project.get("optional-dependencies") or {}).values():
+        add_list(group)
+    # PEP 735
+    for group in (data.get("dependency-groups") or {}).values():
+        add_list(group)
+    # Poetry
+    poetry = ((data.get("tool") or {}).get("poetry") or {})
+    add_table(poetry.get("dependencies"))
+    add_table(poetry.get("dev-dependencies"))
+    for group in (poetry.get("group") or {}).values():
+        if isinstance(group, dict):
+            add_table(group.get("dependencies"))
+    # Cargo. Its dependency tables sit at the top level, which pyproject's never
+    # do, so one parser can serve both files.
+    for table in ("dependencies", "dev-dependencies", "build-dependencies"):
+        add_table(data.get(table))
+
+    # A language version constraint is not a declared dependency. The language
+    # itself is already evidenced by its own channel.
+    return {p for p in out if p and p not in {"python", "rust-version"}}
 
 
 def parse_go_mod(text: str) -> set[str]:
@@ -372,7 +458,14 @@ def parse_composer_json(text: str) -> set[str]:
     out = set()
     for key in ("require", "require-dev"):
         out |= {k.split("/")[-1].lower() for k in (d.get(key) or {})}
-    return out
+    # `php`, `ext-mbstring` and `composer-plugin-api` are PLATFORM constraints,
+    # not packages: composer uses the same table for both. Same reason the TOML
+    # parser drops a `python` pin -- a version requirement for the runtime is not
+    # a declared dependency, and the language has its own channel anyway.
+    return {p for p in out
+            if p not in {"php", "hhvm", "composer", "composer-plugin-api",
+                         "composer-runtime-api"}
+            and not p.startswith(("ext-", "lib-"))}
 
 
 def parse_gemfile(text: str) -> set[str]:
@@ -432,6 +525,15 @@ def collect_profile(
             client, username, repo, now=now,
             manifest_allowance=_manifest_allowance(client, remaining),
         )
+        if snap.tree_absent:
+            # The repository has no commits. There is nothing to retrieve and
+            # nothing went wrong, so skip it WITHOUT marking the profile partial
+            # and WITHOUT stopping -- an abandoned empty repo is one of the most
+            # common things on GitHub and must not cost a candidate the rest of
+            # their verification. Keeping it in scope would also drag
+            # verification_coverage down for a repo that could never carry
+            # evidence either way.
+            continue
         if not snap.tree_retrieved:
             # The repo whose fetch TRIPPED the limit would otherwise be kept with
             # an empty tree, which reads as "no evidence here" rather than "we
@@ -456,9 +558,11 @@ def _snapshot_repo(client: Client, username: str, repo: dict,
     full = repo.get("full_name") or f"{username}/{repo.get('name')}"
     branch = repo.get("default_branch") or "main"
 
-    tree = client.get_json(f"{API}/repos/{full}/git/trees/{branch}?recursive=1")
+    tree_url = f"{API}/repos/{full}/git/trees/{branch}?recursive=1"
+    tree = client.get_json(tree_url)
     paths: list[str] = []
     tree_retrieved = tree is not None
+    tree_absent = tree is None and tree_url in getattr(client, "definitive_misses", ())
     if isinstance(tree, dict):
         for entry in (tree.get("tree") or [])[:MAX_TREE_ENTRIES]:
             p = entry.get("path") or ""
@@ -474,7 +578,8 @@ def _snapshot_repo(client: Client, username: str, repo: dict,
             manifest_retrieved = True
             packages |= parse_manifest(Path(name).name, text)
 
-    share = _authorship_share(client, full, username)
+    # No commits means no contributors to ask about, so don't spend the request.
+    share = None if tree_absent else _authorship_share(client, full, username)
 
     return RepoSnapshot(
         name=repo.get("name") or full,
@@ -485,6 +590,7 @@ def _snapshot_repo(client: Client, username: str, repo: dict,
         authorship_share=share,
         tree_retrieved=tree_retrieved,
         manifest_retrieved=manifest_retrieved,
+        tree_absent=tree_absent,
     )
 
 
