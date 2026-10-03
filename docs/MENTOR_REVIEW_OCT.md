@@ -101,11 +101,32 @@ is the honest answer.
 3. **Is a two-skill allowlist too conservative to demonstrate the contribution?**
    If `CONTRADICTED` almost never fires, the headline feature may be invisible in
    the evaluation even if the mechanism is sound.
-4. **Channel-map recall is the binding constraint, not collection effort.** On the
-   author's profile the map recognised 20 of 93 declared packages, and one gap
-   (`groq` in 12 manifests) alone made an LLM-heavy candidate read `UNVERIFIABLE`.
-   **Recall must be measured before Dataset A is labelled**, or the confidence
-   constants get fitted to holes in the map rather than to reality.
+4. **Is a declared test runner evidence of testing?** The map grants **E3
+   DECLARED** — the strongest unauthored tier — for a `pytest` line in a
+   requirements file, where it often arrives with a project template. The same
+   question covers linters, formatters and CI actions. Deliberately left unchanged
+   rather than decided on our own judgement; it is also queued as an E2 ablation
+   (RN-2 in `docs/REPORT_NOTES.md`).
 
-**Status:** 1,434 postings · 300+ tests · evidence engine live in `/analyze` with
-both numbers in the UI · `CONTRADICTED` off pending validation.
+### Resolved since this brief was written
+
+5. **Channel-map recall was the binding constraint — it is not any more.**
+   ~~On the author's profile the map recognised 20 of 93 declared packages, and
+   one gap (`groq` in 12 manifests) alone made an LLM-heavy candidate read
+   `UNVERIFIABLE`.~~ **Measured on 2026-10-03 over 48 other profiles** (488 repos,
+   1,704 declared dependencies, two stated sampling frames): after ten spec
+   extensions, **map recall on the judged head is 100% in both frames**. The
+   binding constraint is now the **taxonomy** — nine skills real candidates
+   declare have no canonical entry, and `Web Scraping` is an *alias of Selenium*,
+   which would have produced a false verification. Handed to lane C.
+   Full result: `docs/baselines/channel_recall_2026-10-03.md`.
+
+   It also found that an **empty repository aborted an entire profile** (GitHub
+   answers 409 for a repo with no commits) — five of the first eighteen profiles
+   verified nothing — and that **only 26% of this population's repos declare any
+   dependencies at all**, which is why the confidence constants were recalibrated
+   to treat E2 as the working ceiling and E3 as a bonus (RN-1).
+
+**Status:** 1,434 postings · 359 tests · evidence engine live in `/analyze` with
+both numbers in the UI · `CONTRADICTED` off pending validation · channel-map
+recall measured and its prerequisite closed.

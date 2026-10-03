@@ -78,6 +78,34 @@ def test_bonuses_can_never_invert_the_tier_ordering():
     assert best_e1 < bare_e3, f"E1-with-everything {best_e1} >= bare E3 {bare_e3}"
 
 
+def test_e2_alone_reads_as_verified_not_as_half_verified():
+    """The calibration decision of 2026-10-03, pinned.
+
+    Only 26% of repos in this product's real population contain a parseable
+    manifest, so E3 is unreachable for most candidates for reasons that have
+    nothing to do with them. E2 therefore has to anchor "verified" on its own: a
+    candidate whose every claim is demonstrated in the file tree must not read as
+    half-verified because of which ecosystem they work in.
+    """
+    bare_e2 = confidence(SkillEvidence("X", Tier.PRESENT))
+    assert bare_e2 >= 0.5, (
+        "a file-tree hit with nothing else must still read as verified; see "
+        "TIER_BASE's note and docs/baselines/channel_recall_2026-10-03.md")
+
+    typical_e2 = confidence(SkillEvidence("X", Tier.PRESENT, n_repos=2,
+                                          recency_months=3.0, authorship_share=1.0))
+    assert typical_e2 >= 0.70, f"an ordinary good E2 profile reads {typical_e2}"
+
+
+def test_e3_is_a_bonus_over_e2_not_a_different_league():
+    """The ordering stays strict -- a declaration is harder to fabricate than a
+    file -- but the step is bonus-sized. A chasm between them would be a claim
+    about fabrication difficulty that the 26% finding does not support."""
+    step = TIER_BASE[Tier.DECLARED] - TIER_BASE[Tier.PRESENT]
+    assert 0 < step <= REPO_BONUS_CAP + AUTHOR_BONUS_CAP, (
+        f"E2->E3 step is {step}; it should be comparable to the bonuses, not dwarf them")
+
+
 def test_unknown_signals_are_not_penalties():
     """authorship_share is frequently None because the commits API is rate
     limited. That is our failure, not the candidate's, so it must only forgo a

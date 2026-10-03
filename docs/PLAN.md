@@ -535,6 +535,14 @@ questions an examiner will ask.*
 demonstrated in this person's public artifacts?* Label: demonstrated / not demonstrated /
 undeterminable. Tedious, not difficult — which is why it suits four extra people.
 
+**Protocol, tooling and selection: `docs/ANNOTATION_PROTOCOL.md`** (drafted
+2026-10-03), with `scripts/sample_dataset_a.py` to draw a role-stratified cohort,
+`scripts/build_annotation_task.py` to turn profiles into claims, and
+`scripts/annotate.py` for the annotators. The task files carry **no verdict, tier
+or confidence**, and the artifacts shown are not filtered by the channel map —
+ground truth anchored to the engine's own output would make E1 a comparison of the
+engine with itself.
+
 **Dataset A — planted claims (N=60), exact ground truth.** Pick a real public GitHub user
 with ≥10 non-fork repos; two annotators independently determine their true skill set, a
 third adjudicates; construct a *fictional* person's resume mixing true skills with
@@ -597,7 +605,7 @@ system and here is where it broke" is the most viva-proof section a report can c
 | ID | Question | Design | Metric |
 |---|---|---|---|
 | **E1** *(primary)* | Does evidence verification beat claim-only? | Same pipeline, verification on/off, Datasets A+B | Precision / recall / F1; Kendall τ vs. ground-truth gap ranking |
-| **E2** | Which signals matter? | Ablate file tree, manifests, authorship, language stats, recency | Δ F1 per removed signal |
+| **E2** | Which signals matter? | Ablate file tree, manifests, authorship, language stats, recency, **and manifest evidence for *practice* skills separately** (RN-2: a declared `pytest` currently earns E3) | Δ F1 per removed signal |
 | **E3** | Does induced vocabulary beat the 96-skill list? | Closed vs. induced + semantic layer | Extraction precision / recall; corpus coverage |
 | **E4** | Can the system be fooled? | Dataset C | Detection rate; failure taxonomy |
 | **E5** *(secondary)* | Do evidence-conditioned roadmaps help? | 3 annotators rubric-score, blind to engine | Mean score; inter-rater agreement |

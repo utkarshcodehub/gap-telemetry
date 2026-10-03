@@ -83,11 +83,32 @@ class Verdict(str, Enum):
 #: Floor contributed by the strongest evidence found. The jump from E1 to E2 is
 #: the largest on purpose: it is the step from candidate-authored prose to an
 #: artifact their toolchain produced.
+#: Recalibrated 2026-10-03 from the cohort measurement: **E2 PRESENT is the
+#: working ceiling and E3 DECLARED is a bonus on top of it**, not the other way
+#: round.
+#:
+#: Only 26% of repos in a 349-repo sample of this product's actual population
+#: contained a parseable dependency manifest at all (DSA-solution repos, static
+#: pages and course work declare nothing), so for roughly three repos in four the
+#: MANIFEST channel does not exist and E3 is unreachable no matter what the
+#: candidate can do. The earlier ladder put E2 at 0.45 -- below half -- which
+#: meant a candidate whose every claim was genuinely demonstrated in the file tree
+#: still read as weakly verified, and verified_readiness would have been
+#: systematically depressed for the majority by an artifact of which ecosystem
+#: they work in rather than by anything about them.
+#:
+#: So E2 anchors "verified" and E3 adds to it. The ordering is strictly preserved
+#: -- a declaration still beats a file, because it is still harder to fabricate --
+#: but the step is bonus-sized rather than a chasm. Full measurement:
+#: docs/baselines/channel_recall_2026-10-03.md.
+#:
+#: These are the constants Dataset A exists to validate (E1/E2). They are stated
+#: here, with the reasoning, so the experiment can disagree with them.
 TIER_BASE: dict[Tier, float] = {
     Tier.MENTIONED: 0.15,
-    Tier.PRESENT: 0.45,
-    Tier.DECLARED: 0.65,
-    Tier.AUTHORED: 0.80,
+    Tier.PRESENT: 0.55,
+    Tier.DECLARED: 0.70,
+    Tier.AUTHORED: 0.85,
 }
 
 #: Breadth. Capped so twenty throwaway repos cannot lift an E1 mention above a
