@@ -268,6 +268,12 @@ then dropped, so no output file can leak it.
 `tests/test_channel_recall.py::test_the_committed_cohort_files_contain_no_real_handles`
 keeps it that way.
 
+**The handles remain in git history, by decision.** They were committed in
+`42986a1` before the anonymisation in `db4bd72`, and the owner's call (2026-10-03)
+is to leave them: they are public GitHub handles, read through the public API, and
+a history rewrite plus force-push would only partially remove them anyway — GitHub
+serves rewritten commits by SHA until it garbage-collects. Not an open item.
+
 **Reproducibility without the handles.** The sampling query is published in
 `FRAMES`, so anyone can redraw an equivalent cohort with
 `--frame <frame> --sample N` and re-derive the result from scratch. Whoever holds
