@@ -30,7 +30,7 @@ Supabase Auth (JWT issuance) ──► FastAPI verifies locally via JWKS ──�
 - `core/auth/verify.py` — Supabase JWT verification (JWKS prod / HS256 dev), see below
 - `app/settings.py`, `app/deps.py`, `app/main.py` — FastAPI: auth, CORS, upload limits, rate limiting
 - `frontend/` — React dashboard with Supabase login gate
-- `tests/` — 94 tests, real integration tests against the Supabase project
+- `tests/` — 335 tests, real integration tests against the Supabase project
   in `backend/.env` (a configured project incl. service-role key is
   required to run them — see below)
 

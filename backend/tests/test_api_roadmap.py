@@ -35,7 +35,14 @@ def client():
     only runs lifespan/startup when used as a context manager — so there's
     no risk of the 500-posting auto-seed colliding with this fixture's 4
     known postings.
+
+    The limiter is reset per test. /analyze allows 10/minute per client address
+    and the whole suite shares one, so without this the suite's own call count
+    silently caps how many /analyze tests may exist -- adding an eleventh made an
+    unrelated test fail with a 429. Rate limiting is still proven, by the test
+    that makes 12 calls inside a single test.
     """
+    main.app.state.limiter.reset()
     _truncate_market_data()
     ingest_postings(
         [make_record("1", "Python, Machine Learning, Pandas", role="ml"),
@@ -138,6 +145,45 @@ def test_analyze_with_text(client, auth_headers):
     assert body["report"]["readiness_score"] > 0
     assert body["github"]["state"] == "not_requested"
     assert body["github"]["evidence_used"] is False
+
+
+def test_evidence_block_is_present_even_without_a_github_username(client, auth_headers):
+    """claimed_readiness needs only the resume and the market, so it is ALWAYS
+    computed.
+
+    This was previously optional, which meant an analysis with no GitHub username
+    had no claimed number either and the UI fell back to the legacy union gauge --
+    the very number the evidence model replaces.
+    """
+    r = client.post("/analyze", data={
+        "role": "ml", "resume_text": "Skills: Python, SQL, Docker and PyTorch",
+    }, headers=auth_headers)
+    assert r.status_code == 200
+    ev = r.json()["evidence"]
+
+    assert ev is not None, "the evidence block must never be omitted"
+    assert ev["claimed_readiness"] > 0, "resume claims alone produce a number"
+    assert ev["verified_readiness"] == 0.0, "nothing was verified; nothing claimed to be"
+    assert ev["repos_analysed"] == 0
+    # None, not 0: "nothing to check" and "checked nothing" differ, and a 0 here
+    # would read as a failed verification rather than an absent one.
+    assert ev["verification_coverage"] is None
+    assert ev["assessments"], "every claim still gets a verdict"
+    assert {a["verdict"] for a in ev["assessments"]} <= {"UNVERIFIABLE"}
+
+
+def test_evidence_block_carries_the_legacy_union_for_comparison(client, auth_headers):
+    """The pre-evidence-model score stays in the API and out of the product.
+
+    core/gap/baseline.py measures against it, so it has to remain reachable; the
+    UI shows it nowhere, because a two-number story only reads clearly with
+    exactly two numbers.
+    """
+    r = client.post("/analyze", data={
+        "role": "ml", "resume_text": "Skills: Python, SQL and PyTorch",
+    }, headers=auth_headers)
+    body = r.json()
+    assert body["evidence"]["legacy_union_readiness"] == body["report"]["readiness_score"]
 
 
 def test_analyze_requires_input(client, auth_headers):
