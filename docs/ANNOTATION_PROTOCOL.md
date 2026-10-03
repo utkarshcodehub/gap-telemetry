@@ -191,29 +191,73 @@ measured:
 | Primary language matches the role's stratum | Otherwise the stratification is decorative. |
 | **Not in either recall cohort** | Those 48 profiles informed the channel map. Evaluating on them would be testing on training data — the exact mistake the recall prerequisite was written to prevent. The tool refuses them. |
 
-**Record the drop-out rate.** The script prints it, and it is a finding about the
-population rather than bookkeeping. Measured on two strata, 2026-10-03:
+### The frozen cohort (2026-10-03)
+
+**16 profiles, 2 per role across all 8 roles**, in
+`backend/scripts/dataset_a_cohort.txt` as aliases `DSA-49`…`DSA-65`. Handles are in
+the gitignored mapping, as always.
 
 | | |
 |---|---|
-| Acceptance rate | **14%** of screened candidates |
-| Dominant rejector | location not recognised as Indian (12 of 14) |
-| Rejected by the manifest gate | **0** |
+| Profiles | **16** (2 × 8 roles) |
+| Repos | **526** |
+| Repos with a parseable manifest | **356 (68%)** — against 26% in the general population |
+| Partial collections | **0** |
+| Candidates screened to find them | ~500 |
+| Acceptance rate | **2–4%** |
+| Dominant rejector | location not recognised as Indian, then accounts with 1–4 repos |
+| Rejected by the manifest gate | **2** |
 
-Two things follow. First, budget roughly **110 candidates screened and ~1,200 API
-requests** for 16 profiles — free, but not instant. Second, and more interesting:
-**the manifest gate rejected nobody here.** It bites hard on the general
-population (26% of repos) and not at all on a role-targeted pool, because
-role-typical topic-tagged repositories are real projects rather than coursework.
-Role-stratified sampling therefore solves most of the RN-1 problem as a
-side effect — keep the gate anyway, since it costs nothing and the day it fires is
-the day it was needed.
+**The manifest gate barely fires on a role-targeted pool** — 2 rejections in ~500
+screened, against the 74% of general-population repos that declare nothing.
+Role-typical topic-tagged repositories are real projects rather than coursework, so
+role stratification solves most of the RN-1 problem as a side effect. Keep the gate:
+it costs nothing, and the day it fires is the day it was needed.
 
-A first attempt sorted the repository search by **stars** and rejected 56 of 60 on
-location: star-ranked results are dominated by famous international projects,
-which is the wrong population twice over, since a many-thousand-star maintainer is
-not who this product is for either. Sorting by recency instead halved the screening
-cost and doubled the acceptance rate.
+**The screening cost is the location filter, not the artifact gates.** Budget ~500
+candidates screened and ~1,900 API requests for 16 profiles — free, but not
+instant, and worth knowing before anyone re-runs it casually.
+
+Four things went wrong while drawing this cohort, all of them worth knowing before
+you re-run it:
+
+1. **Sorting by stars is the wrong frame.** A first attempt sorted the repository
+   search by stars and rejected 56 of 60 on location: star-ranked results are
+   dominated by famous international projects, which is the wrong population twice
+   over, since a many-thousand-star maintainer is not who this product is for
+   either. Recency sorting halved the screening cost.
+2. **One topic tag is too narrow a pool.** `topic:terraform language:HCL` and
+   `topic:machine-learning language:Python` each yielded exactly one qualifying
+   profile in 300 results, and no pool size could fix that. Each role now has
+   several queries, pooled **interleaved** — a first version tried them in order
+   and the broad fallbacks never fired, because the most characteristic query
+   filled the pool by itself.
+3. **`--per-role` is a target total, not a per-run quota.** Topping up a stratum
+   that already had one profile accepted two more, over-filling devops to three,
+   while reporting ai/ml as short when it had just been completed. The surplus
+   profile was dropped — and the one dropped was the right one, see below.
+4. **The recency gate was too weak as first written.** "Pushed something in the
+   last 24 months" was implemented as *at least one repo*, which admitted a profile
+   with 2 of 25 repos active — 92% dormant — against a gate whose stated intent is
+   that a dormant profile tests a different thing. It is now a **share** (≥25% of
+   repos). One already-accepted profile failed the tightened gate and was replaced.
+   This is fixing an implementation that never matched the gate, not moving the gate
+   after seeing the results.
+
+### Ground truth is collected without the product's repo cap
+
+`/analyze` stops at 25 repos (NFR-2 bounds what one live analysis may spend). The
+task builder does not: four cohort profiles have 32, 56, 74 and 96 repos, and
+collecting them at the product cap marked **eight of sixteen profiles `partial`**.
+A partial profile tells the annotator that absence is not evidence, which steers an
+honest annotator toward `u` and quietly caps how many `n` labels the dataset can
+contain — and `n` is what `CONTRADICTED` is measured against, so the cap would land
+on the one verdict the project most needs to evaluate.
+
+Ground truth has to describe what is **true**, not what a budgeted analysis
+happened to see. Where the engine's cap costs it evidence the annotator had, that
+gap is a real limitation and **E1 should measure it rather than hide it** by
+handicapping the annotator to match.
 
 ### Diversity within a stratum
 
@@ -258,6 +302,14 @@ python scripts/annotate.py --task dry_run --annotator <your-name>
 - One item per screen: the claim, then the artifacts, then the prompt.
 - `d` / `n` / `u` to label, `s` to skip for now, `b` to go back one,
   `?` to re-read the label definitions, `q` to save and quit.
+- `/pattern` searches **every** file tree in the profile, including repos the
+  screen is not showing. For a claim about a specific file (`/dockerfile`,
+  `/.tf`, `/workflows`) this is faster and more reliable than reading.
+- `a` shows every repo. The screen lists the 12 most recently pushed by default,
+  because some profiles have 70 or more and nobody reads 96 blocks. **Nothing is
+  removed from the data** — only from the default view. The line *"everything
+  declared across all repos"* at the top is the whole profile's dependencies in one
+  place, and for a claim about a library it is often the entire answer.
 - Progress saves after **every** item, so quitting loses nothing and you can
   resume by re-running the same command.
 - Your labels go to `data/annotations/<task>/<your-name>.jsonl`, which is

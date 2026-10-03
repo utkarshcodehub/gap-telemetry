@@ -5,8 +5,8 @@ The Dataset A annotation tool.
     python scripts/annotate.py --task dry_run --annotator utkarsh
 
 One claim per screen. Keys: d (demonstrated), n (not demonstrated),
-u (undeterminable), s skip, b back, / search the file trees, ? definitions,
-q save and quit. Progress saves after every answer, so quitting costs nothing and
+u (undeterminable), a show every repo, / search every file tree, s skip, b back,
+? definitions, q save and quit. Progress saves after every answer, so quitting costs nothing and
 re-running resumes.
 
 Protocol: docs/ANNOTATION_PROTOCOL.md. Read it before using this.
@@ -91,15 +91,45 @@ def append(path: Path, row: dict) -> None:
         f.flush()
 
 
-def render_profile(prof: dict) -> str:
+#: Repos shown per screen, most recently pushed first. Ground truth is collected
+#: WITHOUT a repo cap -- some cohort profiles have 70 to 96 repos -- and nothing is
+#: removed from the data: `/pattern` still searches every tree and `a` shows every
+#: repo. This bounds only the default VIEW. Ninety-six blocks on one screen is not
+#: more evidence than twelve plus a search box, it is less, because nobody reads it.
+REPOS_SHOWN = 12
+
+
+def render_profile(prof: dict, *, show_all: bool = False) -> str:
     """The artifacts, as plainly as possible."""
+    repos = sorted(prof["repos"],
+                   key=lambda r: (r["pushed_months_ago"] is None,
+                                  r["pushed_months_ago"] or 0.0))
+    langs: dict[str, int] = {}
+    packages: set[str] = set()
+    for r in repos:
+        langs[r["primary_language"] or "none"] = langs.get(r["primary_language"] or "none", 0) + 1
+        packages |= set(r["packages"])
+
     lines = [
         f"  profile {prof['profile']}   {prof['repos_in_scope']} repos in scope"
         f"   collection: {prof['collection'].upper()}",
+        "  languages: " + ", ".join(f"{k} x{v}" for k, v in
+                                    sorted(langs.items(), key=lambda kv: -kv[1])),
     ]
+    if packages:
+        # Every dependency declared anywhere in the profile, in one place. For a
+        # claim about a library this is often the whole answer, and it does not
+        # depend on the annotator scrolling to the right repo.
+        lines.append(f"  everything declared across all repos ({len(packages)}): "
+                     + ", ".join(sorted(packages)))
     if prof["collection"] == "partial":
         lines.append("  ** collection was INCOMPLETE -- absence here is not evidence **")
-    for r in prof["repos"]:
+
+    shown = repos if show_all else repos[:REPOS_SHOWN]
+    if len(shown) < len(repos):
+        lines.append(f"  showing the {len(shown)} most recently pushed of "
+                     f"{len(repos)} repos -- 'a' shows all, '/pattern' searches all")
+    for r in shown:
         share = ("?" if r["authorship_share"] is None
                  else f"{r['authorship_share'] * 100:.0f}% of commits")
         age = ("?" if r["pushed_months_ago"] is None
@@ -164,13 +194,15 @@ def run(task: str, annotator: str) -> int:
             i += 1
             continue
         prof = profiles[item["profile"]]
+        show_all = False
         print(render_item(item, i + 1, len(items)))
         print(render_profile(prof))
         print()
 
         while True:
             try:
-                raw = input("  d / n / u   (s skip, b back, /search, ? help, q quit) > ")
+                raw = input("  d / n / u   (a all repos, /search, s skip, "
+                            "b back, ? help, q quit) > ")
             except EOFError:
                 print("\n  no input available; stopping.")
                 return 1
@@ -180,6 +212,10 @@ def run(task: str, annotator: str) -> int:
                 continue
             if key.startswith("/"):
                 print(search(prof, key[1:]))
+                continue
+            if key == "a":
+                show_all = not show_all
+                print(render_profile(prof, show_all=show_all))
                 continue
             if key == "q":
                 print(f"\n  saved {len(done)} labels to {out_path}")

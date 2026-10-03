@@ -192,10 +192,28 @@ def build_items(profile_alias: str, role: str, skills: list[dict]) -> list[dict]
 # --------------------------------------------------------------------- collect
 
 
+#: Ground truth is collected WITHOUT the per-analysis repo cap, unlike /analyze.
+#:
+#: MAX_REPOS=25 and NFR-2's 150 requests are product constraints: they bound what
+#: one live analysis may spend. Applying them here would mark eight of the sixteen
+#: Dataset A profiles `partial` -- they have 25 or more repos -- and a partial
+#: profile tells the annotator that absence is not evidence, which steers an honest
+#: annotator toward `undeterminable` and quietly caps how many `n` labels the
+#: dataset can contain. `n` is the label that CONTRADICTED is measured against, so
+#: that cap would fall on the one verdict the project most needs to evaluate.
+#:
+#: Ground truth has to describe what is TRUE, not what a budgeted analysis happened
+#: to see. Where the engine's cap costs it evidence the annotator had, that gap is
+#: a real limitation and E1 should measure it rather than hide it by handicapping
+#: the annotator to match.
+DATASET_MAX_REPOS = 120
+DATASET_BUDGET = 900
+
+
 def collect(alias: str, handle: str, token: str | None):
-    client = GitHubClient(token=token, budget=RequestBudget(limit=150),
+    client = GitHubClient(token=token, budget=RequestBudget(limit=DATASET_BUDGET),
                           cache_dir=CACHE_DIR)
-    return collect_profile(client, handle)
+    return collect_profile(client, handle, max_repos=DATASET_MAX_REPOS)
 
 
 def main() -> None:

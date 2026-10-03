@@ -1,0 +1,27 @@
+# Dataset A cohort, role-stratified. ANONYMISED -- handles live only in
+# backend/data/recall_cohort_map.json, which is gitignored.
+# Selection method and gates: scripts/sample_dataset_a.py.
+# ai ml engineer
+DSA-49
+DSA-63
+# backend developer
+DSA-50
+DSA-51
+# data analyst
+DSA-53
+DSA-64
+# data engineer
+DSA-54
+DSA-55
+# devops engineer
+DSA-56
+DSA-65
+# frontend developer
+DSA-57
+DSA-58
+# full stack developer
+DSA-59
+DSA-60
+# qa engineer
+DSA-61
+DSA-62

@@ -69,15 +69,51 @@ COHORT_OUT = COHORT_FILE.with_name("dataset_a_cohort.txt")
 #: its practitioners actually publish. Approximate by construction: a topic tag is
 #: a claim by the repo's author, which is why it only picks the POOL -- every
 #: candidate is then screened on artifacts, which are not self-reported.
-ROLE_QUERIES: dict[str, str] = {
-    "backend developer": "topic:spring-boot language:Java",
-    "frontend developer": "topic:react language:TypeScript",
-    "full stack developer": "topic:mern-stack",
-    "devops engineer": "topic:terraform language:HCL",
-    "qa engineer": "topic:selenium",
-    "data engineer": "topic:etl language:Python",
-    "data analyst": "topic:data-analysis",
-    "ai ml engineer": "topic:machine-learning language:Python",
+#: Several queries per role, tried in order until the stratum fills. One topic tag
+#: is too narrow a pool: `topic:terraform language:HCL` and
+#: `topic:machine-learning language:Python` each yielded exactly one qualifying
+#: profile in 300 results, and raising --pool-per-role could not help because the
+#: pool itself was exhausted. A role is not one topic.
+ROLE_QUERIES: dict[str, tuple[str, ...]] = {
+    "backend developer": (
+        "topic:spring-boot language:Java",
+        "topic:rest-api language:Java",
+    ),
+    "frontend developer": (
+        "topic:react language:TypeScript",
+        "topic:frontend language:JavaScript",
+    ),
+    "full stack developer": (
+        "topic:mern-stack",
+        "topic:fullstack",
+    ),
+    "devops engineer": (
+        "topic:terraform language:HCL",
+        "topic:devops",
+        "topic:kubernetes",
+        "topic:ci-cd",
+    ),
+    "qa engineer": (
+        "topic:selenium",
+        "topic:automation-testing",
+        "topic:playwright",
+    ),
+    "data engineer": (
+        "topic:etl language:Python",
+        "topic:data-pipeline",
+        "topic:airflow",
+    ),
+    "data analyst": (
+        "topic:data-analysis",
+        "topic:data-visualization",
+        "topic:powerbi",
+    ),
+    "ai ml engineer": (
+        "topic:machine-learning language:Python",
+        "topic:deep-learning",
+        "topic:computer-vision",
+        "topic:nlp",
+    ),
 }
 
 #: Gates. Each one traces to something measured; see the module docstring.
@@ -85,12 +121,55 @@ MIN_PUBLIC_REPOS = 10
 MIN_NON_FORK_REPOS = 10
 MIN_REPOS_WITH_MANIFEST = 3
 RECENT_PUSH_MONTHS = 24.0
+#: ...and this SHARE of the profile's repos must be that recent. The gate was
+#: specified as "pushed something in the last 24 months" and first implemented as
+#: "at least one repo", which let through a profile with 2 of 25 repos active --
+#: 92% dormant. The protocol's stated intent is that "a dormant profile tests a
+#: different thing", so one live repo out of twenty-five never met it. Tightening
+#: this is fixing an implementation that did not match the gate, not moving the
+#: gate after seeing the results.
+MIN_RECENT_SHARE = 0.25
 
 INDIA = ("india", "bharat", "bengaluru", "bangalore", "mumbai", "delhi", "pune",
          "hyderabad", "chennai", "kolkata", "noida", "gurgaon", "gurugram",
          "ahmedabad", "jaipur", "kochi", "coimbatore", "indore", "lucknow",
          "bhopal", "nagpur", "surat", "patna", "chandigarh", "vizag",
          "visakhapatnam", "thiruvananthapuram", "mysore", "nashik", "vadodara")
+
+
+def read_cohort_by_role(path: Path) -> dict[str, list[str]]:
+    """Parse the frozen cohort back into {role: [alias]}.
+
+    The role comments are structure, not decoration: they are what lets one
+    stratum be topped up without disturbing the others.
+    """
+    out: dict[str, list[str]] = {}
+    if not path.exists():
+        return out
+    role = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith("#"):
+            label = line.lstrip("#").strip()
+            if label in ROLE_QUERIES:
+                role = label
+                out.setdefault(role, [])
+            continue
+        if line and role:
+            out[role].append(line)
+    return out
+
+
+def write_cohort_by_role(path: Path, by_role: dict[str, list[str]]) -> None:
+    lines = [
+        "# Dataset A cohort, role-stratified. ANONYMISED -- handles live only in",
+        "# backend/data/recall_cohort_map.json, which is gitignored.",
+        "# Selection method and gates: scripts/sample_dataset_a.py.",
+    ]
+    for role in sorted(by_role):
+        lines.append(f"# {role}")
+        lines.extend(by_role[role])
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def looks_indian(location: str | None) -> bool:
@@ -107,8 +186,33 @@ def looks_indian(location: str | None) -> bool:
     return any(token in low for token in INDIA)
 
 
-def owners_for_role(client: GitHubClient, query: str, *, want: int) -> list[str]:
-    """Distinct repository owners matching a role's query, most recently pushed first.
+def owners_for_queries(client: GitHubClient, queries: tuple[str, ...], *,
+                       want: int) -> list[str]:
+    """Pool the owners from EVERY one of a role's queries, interleaved.
+
+    Not "in order until `want` is met", which was the first version and was wrong:
+    the most characteristic query alone returns hundreds of owners, so the broader
+    fallbacks never fired and the pool stayed effectively single-topic. The
+    bottleneck is the screen -- ai/ml and devops pass about 2% -- so breadth has to
+    reach the screened set, not just sit behind a `break`.
+
+    Interleaved rather than concatenated for the same reason: round-robin gives
+    every query a share of a bounded pool, so `--pool-per-role 40` screens
+    candidates from all four devops topics instead of forty from Terraform alone.
+    """
+    per_query = [owners_for_query(client, q, want=want) for q in queries]
+    seen: list[str] = []
+    for i in range(max((len(p) for p in per_query), default=0)):
+        for pool in per_query:
+            if i < len(pool) and pool[i] not in seen:
+                seen.append(pool[i])
+        if len(seen) >= want:
+            break
+    return seen[:want]
+
+
+def owners_for_query(client: GitHubClient, query: str, *, want: int) -> list[str]:
+    """Distinct repository owners matching one query, most recently pushed first.
 
     Sorted by recency, NOT by stars. A first pass sorted by stars rejected 56 of 60
     candidates on location, because star-ranked results are dominated by famous
@@ -119,7 +223,7 @@ def owners_for_role(client: GitHubClient, query: str, *, want: int) -> list[str]
     """
     q = quote(f"{query} fork:false")
     seen: list[str] = []
-    for page in (1, 2, 3):
+    for page in (1, 2, 3, 4, 5):
         body = client.get_json(
             f"{API}/search/repositories?q={q}&sort=updated&order=desc"
             f"&per_page=100&page={page}")
@@ -161,8 +265,10 @@ def artifact_screen(client: GitHubClient, handle: str) -> tuple[bool, str, dict]
         return False, f"{non_fork} non-fork repos", stats
     if with_manifest < MIN_REPOS_WITH_MANIFEST:
         return False, f"only {with_manifest} repos declare dependencies", stats
-    if not recent:
-        return False, "nothing pushed in 24 months", stats
+    share = recent / max(1, non_fork)
+    if share < MIN_RECENT_SHARE:
+        return False, (f"only {recent} of {non_fork} repos pushed in 24 months "
+                       f"({share:.0%})"), stats
     return True, "ok", stats
 
 
@@ -190,26 +296,47 @@ def main() -> None:
         for alias in read_cohort(COHORT_FILE.with_name(f"recall_cohort_{frame}.txt")):
             if alias in mapping:
                 in_recall.add(mapping[alias])
+    # Already chosen, for this role or another. Without this, topping up a short
+    # stratum re-accepts someone already in the cohort under a second alias, and
+    # one person would be annotated twice as though they were two data points.
+    frozen = read_cohort_by_role(COHORT_OUT)
+    already = {mapping[a] for aliases in frozen.values()
+               for a in aliases if a in mapping}
 
     client = GitHubClient(token=settings.github_token,
                           budget=RequestBudget(limit=4000), cache_dir=CACHE_DIR)
 
     accepted: dict[str, list[tuple[str, dict]]] = {}
     tally = {"searched": 0, "cheap_rejected": 0, "artifact_rejected": 0,
-             "in_recall_cohort": 0, "accepted": 0}
+             "in_recall_cohort": 0, "already_in_cohort": 0, "accepted": 0}
 
     for role in args.roles:
-        query = ROLE_QUERIES[role]
-        print(f"\n{role}   ({query})")
-        pool = owners_for_role(client, query, want=args.pool_per_role)
+        queries = ROLE_QUERIES[role]
+        # --per-role is a TARGET TOTAL for the stratum, not a per-run quota. The
+        # first top-up run over-filled devops to three and reported ai/ml as short
+        # when it had in fact just been completed, because neither number accounted
+        # for what the cohort already held.
+        have = len(frozen.get(role, []))
+        need = max(0, args.per_role - have)
+        print(f"\n{role}   ({' | '.join(queries)})")
+        if have:
+            print(f"  (already has {have}, needs {need} more)")
+        if not need:
+            accepted[role] = []
+            continue
+        pool = owners_for_queries(client, queries, want=args.pool_per_role)
         keep: list[tuple[str, dict]] = []
         for handle in pool:
-            if len(keep) >= args.per_role:
+            if len(keep) >= need:
                 break
             tally["searched"] += 1
             if handle in in_recall:
                 tally["in_recall_cohort"] += 1
                 print("  -  (skipped: informed the channel map)")
+                continue
+            if handle in already:
+                tally["already_in_cohort"] += 1
+                print("  -  (skipped: already in the cohort)")
                 continue
             ok, why = cheap_screen(client, handle)
             if not ok:
@@ -227,8 +354,8 @@ def main() -> None:
                   f"{stats['with_manifest']} with a manifest, "
                   f"{stats['recent']} pushed recently")
         accepted[role] = keep
-        if len(keep) < args.per_role:
-            print(f"  ** only {len(keep)} of {args.per_role} found; raise "
+        if have + len(keep) < args.per_role:
+            print(f"  ** stratum has {have + len(keep)} of {args.per_role}; raise "
                   f"--pool-per-role or relax a gate deliberately **")
 
     print(f"\n{'=' * 70}")
@@ -246,22 +373,29 @@ def main() -> None:
               "to this cohort.")
         return
 
-    n = len(mapping)
-    lines = []
+    # MERGE, never overwrite. Strata fill at different rates -- the first full run
+    # left ai/ml and devops one short -- so topping up a single role with --roles is
+    # the normal way to finish a cohort. Rewriting the file from this run's roles
+    # alone would silently discard every other stratum.
+    existing = read_cohort_by_role(COHORT_OUT)
     for role, keep in accepted.items():
-        lines.append(f"# {role}")
+        aliases = existing.setdefault(role, [])
         for handle, _ in keep:
-            n += 1
-            alias = f"DSA-{n:02d}"
+            alias = f"DSA-{len(mapping) + 1:02d}"
             mapping[alias] = handle
-            lines.append(alias)
+            aliases.append(alias)
     write_alias_map(mapping)
-    COHORT_OUT.write_text(
-        "# Dataset A cohort, role-stratified. ANONYMISED -- handles live only in\n"
-        "# backend/data/recall_cohort_map.json, which is gitignored.\n"
-        "# Selection method and gates: scripts/sample_dataset_a.py.\n"
-        + "\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\nfroze {tally['accepted']} aliases to {COHORT_OUT}")
+    write_cohort_by_role(COHORT_OUT, existing)
+
+    total = sum(len(v) for v in existing.values())
+    print(f"\nfroze {tally['accepted']} new aliases; {COHORT_OUT.name} now holds "
+          f"{total} profiles across {len(existing)} roles")
+    short = {r: len(v) for r, v in existing.items() if len(v) < args.per_role}
+    if short:
+        print("still short:")
+        for role, have in sorted(short.items()):
+            print(f'  {role}: {have} of {args.per_role}  '
+                  f'(top up with --roles "{role}" --pool-per-role 40)')
 
 
 if __name__ == "__main__":

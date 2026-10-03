@@ -178,8 +178,11 @@ def test_every_corpus_role_has_a_sampling_stratum():
         "devops engineer", "qa engineer", "data engineer", "data analyst",
         "ai ml engineer",
     }
-    for role, query in ROLE_QUERIES.items():
-        assert query.strip(), role
+    for role, queries in ROLE_QUERIES.items():
+        # Several per role, tried in order. One topic tag proved too narrow a pool:
+        # terraform/HCL and machine-learning/Python each yielded exactly one
+        # qualifying profile in 300 results, and no pool size could fix that.
+        assert queries and all(q.strip() for q in queries), role
 
 
 def test_the_location_filter_errs_toward_dropping_candidates():
@@ -200,3 +203,102 @@ def test_the_manifest_gate_is_the_one_rn1_requires():
     from scripts.sample_dataset_a import MIN_REPOS_WITH_MANIFEST
 
     assert MIN_REPOS_WITH_MANIFEST >= 3
+
+
+def test_the_frozen_cohort_round_trips_by_role(tmp_path):
+    """The role comments are structure, not decoration.
+
+    The first full run left two strata one profile short, so topping a single role
+    up is the normal way to finish a cohort. The freeze path therefore has to read
+    the existing file back and merge -- an earlier version rewrote it from the
+    current run's roles alone, which would have silently discarded the other six
+    strata the moment anyone topped one up.
+    """
+    from scripts.sample_dataset_a import read_cohort_by_role, write_cohort_by_role
+
+    path = tmp_path / "cohort.txt"
+    original = {"backend developer": ["DSA-50", "DSA-51"],
+                "devops engineer": ["DSA-56"]}
+    write_cohort_by_role(path, original)
+    assert read_cohort_by_role(path) == original
+
+    merged = read_cohort_by_role(path)
+    merged["devops engineer"].append("DSA-63")
+    write_cohort_by_role(path, merged)
+    back = read_cohort_by_role(path)
+    assert back["devops engineer"] == ["DSA-56", "DSA-63"]
+    assert back["backend developer"] == ["DSA-50", "DSA-51"], "other strata survive"
+
+
+def test_an_unknown_role_comment_is_not_read_as_a_stratum(tmp_path):
+    """Only the eight corpus roles are strata. A stray comment must not create a
+    ninth, or a hand-edited file would quietly grow a role the corpus cannot serve."""
+    from scripts.sample_dataset_a import read_cohort_by_role
+
+    path = tmp_path / "cohort.txt"
+    path.write_text(
+        "# notes about something\nDSA-01\n# backend developer\nDSA-02\n",
+        encoding="utf-8")
+    assert read_cohort_by_role(path) == {"backend developer": ["DSA-02"]}
+
+
+def test_ground_truth_is_not_collected_under_the_product_repo_cap():
+    """Eight of the sixteen Dataset A profiles have 25+ repos, so collecting them
+    at /analyze's cap would mark half the cohort `partial` -- which tells the
+    annotator that absence is not evidence and steers them toward `u`, capping how
+    many `n` labels the dataset can hold. `n` is what CONTRADICTED is measured
+    against, so that cap would land on the verdict most in need of evaluation."""
+    from core.evidence.github import MAX_REPOS
+    from scripts.build_annotation_task import DATASET_BUDGET, DATASET_MAX_REPOS
+
+    assert DATASET_MAX_REPOS > MAX_REPOS
+    assert DATASET_BUDGET > 150, "NFR-2 bounds one live analysis, not dataset building"
+
+
+def test_the_recency_gate_measures_a_share_not_a_single_repo():
+    """A profile with 2 of 25 repos active is 92% dormant and passed the first
+    implementation of a gate whose stated intent is that "a dormant profile tests a
+    different thing"."""
+    from scripts.sample_dataset_a import MIN_RECENT_SHARE
+
+    assert 0 < MIN_RECENT_SHARE <= 1.0
+    assert MIN_RECENT_SHARE >= 0.25
+
+
+def test_the_view_is_bounded_but_the_data_is_not():
+    """The cohort has profiles with 70 to 96 repos once the product's repo cap is
+    off. Ninety-six blocks on one screen is not more evidence than twelve plus a
+    search box -- it is less, because nobody reads it. So the VIEW is bounded while
+    every tree stays searchable."""
+    from scripts.annotate import REPOS_SHOWN
+
+    many = FakeProfile([snap(f"repo{i}", paths=(f"r{i}/only_here.txt",), months=float(i))
+                        for i in range(40)])
+    prof = profile_digest(many, "DSA-59")
+
+    default = render_profile(prof)
+    assert f"showing the {REPOS_SHOWN} most recently pushed of 40" in default
+    assert "repo39" not in default, "the tail is not rendered by default"
+
+    assert "repo39" in render_profile(prof, show_all=True)
+    assert "r39/only_here.txt" in search(prof, "only_here"), (
+        "search covers every repo, bounded view or not")
+
+
+def test_everything_declared_is_aggregated_across_the_profile():
+    """For a claim about a library this one line is often the whole answer, and it
+    does not depend on the annotator scrolling to the right repo."""
+    prof = profile_digest(
+        FakeProfile([snap("a", packages=("fastapi",)), snap("b", packages=("torch",))]),
+        "DSA-50")
+    text = render_profile(prof)
+    assert "everything declared across all repos (2)" in text
+    assert "fastapi, torch" in text
+
+
+def test_the_most_recent_repos_are_the_ones_shown():
+    """Recency decides, because recent work is what a current claim is about."""
+    prof = profile_digest(
+        FakeProfile([snap("old", months=60.0), snap("new", months=1.0)]), "DSA-50")
+    text = render_profile(prof)
+    assert text.index("- new") < text.index("- old")
