@@ -1,34 +1,40 @@
-# Frozen cohort for the channel-map recall measurement.
-# Sampling frame: see sample_cohort() in measure_channel_recall.py.
-rohitkumar-ds
-hrishikeshsde
-Kstariya2
-preetiraj31
-iamaaraven
-webmekk-agency
-smbashadev
-gokulmcodes
-rawalsinghpsnl
-sreelatha-ASKW
-gouravrawat-1
-goldargopal0-prog
-alonewarrior-debug
-akkusahuak53
-Rivoryxa-Technologies
-gunjankr-ai
-Drashti0912
-jaymehta2205
-mortoja-data-analyst
-maazeem786
-rohanshah-31
-anishadogra
-mrahmanmdsf
-rishxbd
-shreedhar-db
-TSravanthi-git
-TechRimagupta
-aartibhosale888-cell
-mohammedazimpatel05-dot
-dev-aditya-wiz
-Nikhil-jais
-shailendra-codes
+# Frozen cohort 'population' for the channel-map recall measurement.
+# ANONYMISED. These are real public GitHub accounts, so the handles are
+# NOT published -- they live only in backend/data/recall_cohort_map.json,
+# which is gitignored. Only public data was read, through the official
+# REST API, and only aggregate package statistics were kept.
+# Sampling frame and query: see FRAMES in measure_channel_recall.py.
+# Without the local mapping, redraw an equivalent cohort with
+#   python scripts/measure_channel_recall.py --frame population --sample N
+POP-01
+POP-02
+POP-03
+POP-04
+POP-05
+POP-06
+POP-07
+POP-08
+POP-09
+POP-10
+POP-11
+POP-12
+POP-13
+POP-14
+POP-15
+POP-16
+POP-17
+POP-18
+POP-19
+POP-20
+POP-21
+POP-22
+POP-23
+POP-24
+POP-25
+POP-26
+POP-27
+POP-28
+POP-29
+POP-30
+POP-31
+POP-32

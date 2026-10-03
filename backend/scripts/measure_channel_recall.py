@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections import defaultdict
 from datetime import date
@@ -72,6 +73,20 @@ from scripts.recall_labels import LABELS, Verdict  # noqa: E402
 
 CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "cache" / "recall"
 COHORT_FILE = Path(__file__).resolve().parent / "recall_cohort.txt"
+#: alias -> real GitHub handle. Gitignored, and deliberately so: see
+#: resolve_cohort(). This repository is public and the cohort is real people.
+COHORT_MAP = Path(__file__).resolve().parents[1] / "data" / "recall_cohort_map.json"
+ALIAS_RE = re.compile(r"^(POP|DEN)-\d+$")
+
+COHORT_HEADER = """# Frozen cohort '{frame}' for the channel-map recall measurement.
+# ANONYMISED. These are real public GitHub accounts, so the handles are
+# NOT published -- they live only in backend/data/recall_cohort_map.json,
+# which is gitignored. Only public data was read, through the official
+# REST API, and only aggregate package statistics were kept.
+# Sampling frame and query: see FRAMES in measure_channel_recall.py.
+# Without the local mapping, redraw an equivalent cohort with
+#   python scripts/measure_channel_recall.py --frame {frame} --sample N
+"""
 
 #: Same as /analyze. See the module docstring.
 BUDGET_PER_PROFILE = 150
@@ -104,7 +119,7 @@ def package_to_skills() -> dict[str, list[str]]:
 
 
 def read_cohort(path: Path) -> list[str]:
-    """One username per line; `#` comments and blanks ignored."""
+    """One entry per line; `#` comments and blanks ignored."""
     if not path.exists():
         return []
     out = []
@@ -113,6 +128,44 @@ def read_cohort(path: Path) -> list[str]:
         if line:
             out.append(line)
     return out
+
+
+def read_alias_map() -> dict[str, str]:
+    """alias -> real GitHub handle, from the gitignored local mapping."""
+    if not COHORT_MAP.exists():
+        return {}
+    return json.loads(COHORT_MAP.read_text(encoding="utf-8"))
+
+
+def write_alias_map(mapping: dict[str, str]) -> None:
+    COHORT_MAP.parent.mkdir(parents=True, exist_ok=True)
+    COHORT_MAP.write_text(json.dumps(mapping, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def resolve_cohort(entries: list[str]) -> tuple[list[tuple[str, str]], list[str]]:
+    """[(alias, handle)] for everything resolvable, plus the aliases that are not.
+
+    The committed cohort files hold ANONYMOUS IDS, not handles. These are real
+    people's public accounts and this repository is public, so the handles live
+    only in the gitignored mapping; everything the measurement prints or writes is
+    the alias. The published sampling query is what makes the result reproducible
+    -- anyone can redraw an equivalent cohort -- and the frozen mapping is what
+    makes it reproducible EXACTLY, for whoever already has it.
+
+    An entry that is not in the mapping is taken as a literal handle, so an ad-hoc
+    one-off cohort (`--cohort my-own-handle.txt`) still works.
+    """
+    mapping = read_alias_map()
+    pairs: list[tuple[str, str]] = []
+    unresolved: list[str] = []
+    for entry in entries:
+        if entry in mapping:
+            pairs.append((entry, mapping[entry]))
+        elif ALIAS_RE.match(entry):
+            unresolved.append(entry)
+        else:
+            pairs.append((entry, entry))
+    return pairs, unresolved
 
 
 #: Two sampling frames, because one frame answers the wrong question.
@@ -157,14 +210,18 @@ def sample_cohort(client: GitHubClient, n: int, *, frame: str = "population",
 # ----------------------------------------------------------- the measurement
 
 
-def measure_profile(username: str, token: str | None) -> dict | None:
-    """Collect one profile and reduce it to package counts. None if it failed."""
+def measure_profile(alias: str, username: str, token: str | None) -> dict | None:
+    """Collect one profile and reduce it to package counts. None if it failed.
+
+    Everything returned is keyed by ALIAS. The handle is used to call the API and
+    then dropped, so no output file can leak it.
+    """
     client = GitHubClient(token=token, budget=RequestBudget(limit=BUDGET_PER_PROFILE),
                           cache_dir=CACHE_DIR)
     try:
         prof = collect_profile(client, username)
     except Exception as e:                           # noqa: BLE001 - report, continue
-        print(f"  {username:<24} FAILED  {type(e).__name__}: {e}")
+        print(f"  {alias:<10} FAILED  {type(e).__name__}: {e}")
         return None
 
     # Per-repo package sets, so a package in twelve repos counts twelve times.
@@ -194,7 +251,7 @@ def measure_profile(username: str, token: str | None) -> dict | None:
     ]
 
     return {
-        "username": username,
+        "username": alias,
         "repos": len(prof.repos),
         "repos_with_a_manifest": sum(1 for r in prof.repos if r.manifest_retrieved),
         "partial": prof.partial,
@@ -427,13 +484,23 @@ def main() -> None:
     if not cohort:
         ap.error(f"no cohort: {args.cohort} is empty or missing. Use --sample N.")
 
-    print(f"MEASURING {len(cohort)} profiles  (cache {CACHE_DIR})")
+    pairs, unresolved = resolve_cohort(cohort)
+    if unresolved:
+        print(f"{len(unresolved)} anonymised ids have no handle in {COHORT_MAP}:")
+        print(f"  {', '.join(unresolved[:8])}{' ...' if len(unresolved) > 8 else ''}")
+        print("The mapping is gitignored on purpose, so a fresh clone does not have")
+        print("it. Redraw an equivalent cohort with --sample N; the published query")
+        print("is what makes the result reproducible.")
+        if not pairs:
+            sys.exit(2)
+
+    print(f"MEASURING {len(pairs)} profiles  (cache {CACHE_DIR})")
     profiles = []
-    for name in cohort:
-        p = measure_profile(name, settings.github_token)
+    for alias, handle in pairs:
+        p = measure_profile(alias, handle, settings.github_token)
         if p is None:
             continue
-        print(f"  {name:<24} {p['repos']:>3} repos  "
+        print(f"  {alias:<10} {p['repos']:>3} repos  "
               f"{len(p['packages']):>4} packages  {p['requests']:>4} requests"
               f"{'  PARTIAL' if p['partial'] else ''}")
         profiles.append(p)

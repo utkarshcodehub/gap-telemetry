@@ -250,6 +250,40 @@ recall — the taxonomy is. Dataset A labelling may begin, with two conditions:
    recording them as ground truth would repeat the exact mistake this prerequisite
    exists to prevent — one level further up.
 
+## Ethics and data handling
+
+**Only public data, through the official API.** Every request was a documented,
+authenticated GitHub REST call — the repo listing, `git/trees`, `contents` for
+manifests, and `contributors`. Nothing was cloned, no code was executed, and no
+private, authenticated or deleted content was touched. What was retained is
+aggregate: per-repo package names and counts. No source code, no file contents, no
+personal details, no email addresses.
+
+**The handles are not published.** This repository is public and the cohort is 48
+real people, so `recall_cohort_population.txt` and `recall_cohort_dense.txt` hold
+anonymous ids (`POP-01`, `DEN-01`). The id→handle mapping lives only in
+`backend/data/recall_cohort_map.json`, which is gitignored, and the measurement
+prints and writes the alias everywhere — the handle is used to call the API and
+then dropped, so no output file can leak it.
+`tests/test_channel_recall.py::test_the_committed_cohort_files_contain_no_real_handles`
+keeps it that way.
+
+**Reproducibility without the handles.** The sampling query is published in
+`FRAMES`, so anyone can redraw an equivalent cohort with
+`--frame <frame> --sample N` and re-derive the result from scratch. Whoever holds
+the local mapping reproduces it *exactly*. This is the weaker of the two
+reproducibility guarantees NFR-5 asks for, and it is the right trade: an exactly
+reproducible number is not worth publishing a list of students' accounts with a
+note about what their code does not contain.
+
+**Why no consent was sought, and why Dataset B is different.** This measurement
+asks a question about *our map* — "which declared packages does it fail to
+recognise" — and reports only aggregate counts; no individual is described,
+scored, or identified. Dataset B, which pairs a real resume with a real GitHub
+account and produces a per-person judgement, is a different kind of study and
+carries the written-consent and anonymisation procedure described in PLAN.md §12.
+The dividing line is whether anything is concluded *about a person*.
+
 ## Also worth knowing
 
 - **Request cost.** The one cohort measured entirely cold, `dense`, cost **386

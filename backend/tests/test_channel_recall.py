@@ -174,6 +174,60 @@ def test_mapped_packages_are_not_still_listed_as_unmappable(taxonomy):
     assert contradictions == []
 
 
+def test_the_committed_cohort_files_contain_no_real_handles():
+    """This repository is public and the cohort is 48 real people's accounts.
+
+    The frozen cohort files hold anonymous ids; the id->handle mapping is
+    gitignored. A handle committed here would publish a list of students' accounts
+    alongside a description of what their code does not contain.
+    """
+    from scripts.measure_channel_recall import ALIAS_RE, COHORT_FILE
+
+    for frame in ("population", "dense"):
+        path = COHORT_FILE.with_name(f"recall_cohort_{frame}.txt")
+        if not path.exists():
+            continue
+        entries = [l.split("#", 1)[0].strip()
+                   for l in path.read_text(encoding="utf-8").splitlines()]
+        leaked = [e for e in entries if e and not ALIAS_RE.match(e)]
+        assert leaked == [], f"{path.name} must hold anonymous ids only"
+
+
+def test_the_alias_mapping_is_not_tracked_by_git():
+    """The whole anonymisation rests on this one file staying out of the repo."""
+    import subprocess
+
+    from scripts.measure_channel_recall import COHORT_MAP
+
+    tracked = subprocess.run(
+        ["git", "ls-files", "--error-unmatch", str(COHORT_MAP)],
+        capture_output=True, cwd=COHORT_MAP.parents[2])
+    assert tracked.returncode != 0, f"{COHORT_MAP.name} is tracked; it must not be"
+
+
+def test_measurement_output_is_keyed_by_alias_not_handle():
+    """Belt and braces: the handle is used to call the API and then dropped, so a
+    result file cannot leak it even if someone commits one."""
+    import scripts.measure_channel_recall as m
+
+    captured = {}
+
+    class Boom(Exception):
+        pass
+
+    def fake_collect(client, username):
+        captured["handle"] = username
+        raise Boom("no network in tests")
+
+    original = m.collect_profile
+    m.collect_profile = fake_collect
+    try:
+        assert m.measure_profile("POP-99", "a-real-handle", None) is None
+    finally:
+        m.collect_profile = original
+    assert captured["handle"] == "a-real-handle", "the API is still called by handle"
+
+
 def test_concept_skills_never_gained_a_package_channel():
     """EC-9's guarantee, asserted rather than trusted: the measurement's whole
     temptation is to close a gap by attaching packages to a concept."""

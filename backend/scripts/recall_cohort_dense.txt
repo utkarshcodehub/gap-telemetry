@@ -1,18 +1,24 @@
-# Frozen cohort for the channel-map recall measurement.
-# Sampling frame: see sample_cohort() in measure_channel_recall.py.
-sarvex
-shubhampachori12110095
-anupamme
-dineshkummarc
-dmaulikr
-virendersran01
-satyamisme
-jyotidwi
-naseemakhtar994
-thomascherickal
-agentmishra
-annihilatorrrr
-TheRakeshPurohit
-ajinkyapuar
-manjunath5496
-rahulmr
+# Frozen cohort 'dense' for the channel-map recall measurement.
+# ANONYMISED. These are real public GitHub accounts, so the handles are
+# NOT published -- they live only in backend/data/recall_cohort_map.json,
+# which is gitignored. Only public data was read, through the official
+# REST API, and only aggregate package statistics were kept.
+# Sampling frame and query: see FRAMES in measure_channel_recall.py.
+# Without the local mapping, redraw an equivalent cohort with
+#   python scripts/measure_channel_recall.py --frame dense --sample N
+DEN-01
+DEN-02
+DEN-03
+DEN-04
+DEN-05
+DEN-06
+DEN-07
+DEN-08
+DEN-09
+DEN-10
+DEN-11
+DEN-12
+DEN-13
+DEN-14
+DEN-15
+DEN-16
